@@ -13,6 +13,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
+  setProfile: (profile: any) => void; // Add setProfile function
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -210,6 +211,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     signIn,
     signOut,
     requestPasswordReset,
+    setProfile, // Add setProfile to the context value
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

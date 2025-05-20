@@ -1,12 +1,22 @@
 
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, User, Menu, X } from "lucide-react";
+import { Search, Menu, X } from "lucide-react";
+import NavbarButtons from "./NavbarButtons";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const navigate = useNavigate();
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
 
   return (
     <header className="border-b bg-white sticky top-0 z-40">
@@ -21,7 +31,7 @@ const Navbar = () => {
           </div>
 
           {/* Desktop search */}
-          <div className="hidden md:block flex-1 max-w-md mx-4">
+          <form onSubmit={handleSearch} className="hidden md:block flex-1 max-w-md mx-4">
             <div className="relative">
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                 <Search className="h-4 w-4 text-gray-400" />
@@ -30,22 +40,15 @@ const Navbar = () => {
                 type="search"
                 placeholder="Search for items to rent..."
                 className="pl-10 w-full"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-          </div>
+          </form>
 
           {/* Desktop navigation */}
           <nav className="hidden md:flex items-center space-x-4">
-            <Link
-              to="/list-item"
-              className="text-brand-600 font-medium hover:text-brand-500"
-            >
-              List Your Item
-            </Link>
-            <Button variant="outline" size="sm">
-              Sign In
-            </Button>
-            <Button size="sm">Sign Up</Button>
+            <NavbarButtons />
           </nav>
 
           {/* Mobile menu button */}
@@ -66,38 +69,30 @@ const Navbar = () => {
         {/* Mobile menu */}
         {isOpen && (
           <div className="md:hidden py-2 space-y-2 animate-fade-in">
-            <div className="relative mb-4">
-              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                <Search className="h-4 w-4 text-gray-400" />
+            <form onSubmit={handleSearch}>
+              <div className="relative mb-4">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                  <Search className="h-4 w-4 text-gray-400" />
+                </div>
+                <Input
+                  type="search"
+                  placeholder="Search for items to rent..."
+                  className="pl-10 w-full"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
               </div>
-              <Input
-                type="search"
-                placeholder="Search for items to rent..."
-                className="pl-10 w-full"
-              />
-            </div>
+            </form>
             <Link
               to="/list-item"
               className="block px-3 py-2 rounded-md text-base font-medium text-brand-600 hover:bg-gray-50"
+              onClick={() => setIsOpen(false)}
             >
               List Your Item
             </Link>
             <div className="pt-4 pb-3 border-t border-gray-200">
-              <div className="flex items-center space-x-3 px-4">
-                <div className="flex-shrink-0">
-                  <div className="h-8 w-8 rounded-full bg-brand-500 flex items-center justify-center">
-                    <User className="h-5 w-5 text-white" />
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <Button
-                    variant="outline"
-                    className="w-full justify-center mb-2"
-                  >
-                    Sign In
-                  </Button>
-                  <Button className="w-full justify-center">Sign Up</Button>
-                </div>
+              <div className="flex items-center px-4">
+                <NavbarButtons />
               </div>
             </div>
           </div>

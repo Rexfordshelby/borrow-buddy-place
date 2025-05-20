@@ -108,7 +108,7 @@ const UserRentals = () => {
                       </span>
                     </div>
                     <div className="flex items-center space-x-2 mb-4">
-                      <Badge variant={rental.status === 'confirmed' ? 'success' : rental.status === 'pending' ? 'warning' : 'default'}>
+                      <Badge variant={rental.status === 'confirmed' ? 'default' : rental.status === 'pending' ? 'outline' : 'secondary'}>
                         {rental.status.charAt(0).toUpperCase() + rental.status.slice(1)}
                       </Badge>
                       <span className="text-sm text-gray-500">
