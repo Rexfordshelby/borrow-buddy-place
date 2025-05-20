@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -12,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Calendar as CalendarIcon, Star, MapPin, Heart, Share, Shield, User, MessageCircle } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
+import { DateRange } from "react-day-picker";
 
 const ItemDetail = () => {
   const { id } = useParams();
@@ -20,10 +20,7 @@ const ItemDetail = () => {
   const [item, setItem] = useState<any>(null);
   const [owner, setOwner] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedDates, setSelectedDates] = useState<{
-    from: Date | undefined;
-    to: Date | undefined;
-  }>({
+  const [selectedDates, setSelectedDates] = useState<DateRange>({
     from: undefined,
     to: undefined,
   });
@@ -304,7 +301,7 @@ const ItemDetail = () => {
                       mode="range"
                       selected={selectedDates}
                       onSelect={(range) => setSelectedDates(range || { from: undefined, to: undefined })}
-                      className="border-0"
+                      className="border-0 pointer-events-auto"
                       disabled={(date) => date < new Date() || date > new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)}
                       initialFocus
                     />
