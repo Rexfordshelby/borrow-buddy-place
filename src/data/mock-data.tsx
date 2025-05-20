@@ -1,5 +1,4 @@
-
-import { Camera, Cpu, Tool, Car, Shirt, Home, Plane, Globe, Bike, Headphones } from "lucide-react";
+import { Camera, Cpu, Wrench, Car, Shirt, Home, Plane, Globe, Bike, Headphones } from "lucide-react";
 
 // Categories data
 export const categories = [
@@ -14,7 +13,7 @@ export const categories = [
     id: "tools",
     title: "Tools & DIY",
     slug: "tools",
-    icon: <Tool className="w-8 h-8" />,
+    icon: <Wrench className="w-8 h-8" />,
     itemCount: 98
   },
   {
