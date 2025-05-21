@@ -88,6 +88,8 @@ export type Database = {
       }
       items: {
         Row: {
+          availability_schedule: string | null
+          cancellation_policy: string | null
           category_id: string | null
           condition: string
           created_at: string
@@ -95,8 +97,11 @@ export type Database = {
           id: string
           image_url: string | null
           is_available: boolean | null
+          is_service: boolean | null
           is_verified: boolean | null
+          latitude: number | null
           location: string
+          longitude: number | null
           price: number
           price_unit: string
           security_deposit: number | null
@@ -105,6 +110,8 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          availability_schedule?: string | null
+          cancellation_policy?: string | null
           category_id?: string | null
           condition: string
           created_at?: string
@@ -112,8 +119,11 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_available?: boolean | null
+          is_service?: boolean | null
           is_verified?: boolean | null
+          latitude?: number | null
           location: string
+          longitude?: number | null
           price: number
           price_unit: string
           security_deposit?: number | null
@@ -122,6 +132,8 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          availability_schedule?: string | null
+          cancellation_policy?: string | null
           category_id?: string | null
           condition?: string
           created_at?: string
@@ -129,8 +141,11 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_available?: boolean | null
+          is_service?: boolean | null
           is_verified?: boolean | null
+          latitude?: number | null
           location?: string
+          longitude?: number | null
           price?: number
           price_unit?: string
           security_deposit?: number | null
@@ -200,6 +215,7 @@ export type Database = {
           phone: string | null
           rating: number | null
           review_count: number | null
+          service_skills: string[] | null
           updated_at: string
           username: string | null
         }
@@ -213,6 +229,7 @@ export type Database = {
           phone?: string | null
           rating?: number | null
           review_count?: number | null
+          service_skills?: string[] | null
           updated_at?: string
           username?: string | null
         }
@@ -226,6 +243,7 @@ export type Database = {
           phone?: string | null
           rating?: number | null
           review_count?: number | null
+          service_skills?: string[] | null
           updated_at?: string
           username?: string | null
         }
@@ -281,6 +299,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      unique_use_cases: {
+        Row: {
+          created_at: string | null
+          description: string
+          id: string
+          image_url: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description: string
+          id?: string
+          image_url?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string
+          id?: string
+          image_url?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       wishlists: {
         Row: {

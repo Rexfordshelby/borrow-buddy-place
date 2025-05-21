@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/components/ui/use-toast";
-import { Search, MapPin, SlidersHorizontal, X } from "lucide-react";
+import { Search, SlidersHorizontal, X } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -24,14 +24,33 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
+import SearchFilters from "@/components/SearchFilters";
+
+interface ItemWithDistance {
+  id: string;
+  title: string;
+  price: number;
+  price_unit: string;
+  location: string;
+  image_url: string | null;
+  is_verified: boolean;
+  is_service: boolean;
+  is_available: boolean;
+  latitude: number | null;
+  longitude: number | null;
+  categories: {
+    name: string;
+    slug: string;
+  } | null;
+  distance?: number | null;
+  rating?: number;
+  review_count?: number;
+}
 
 const SearchPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<ItemWithDistance[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -133,9 +152,6 @@ const SearchPage = () => {
           query = query.eq('is_service', false);
         }
 
-        // Price range filter (applied after fetching)
-        // We'll do client-side filtering for price range and distance since we need to calculate distance client-side
-        
         // Sort order
         if (sortBy === 'price_low') {
           query = query.order('price', { ascending: true });
@@ -155,7 +171,7 @@ const SearchPage = () => {
 
         // Client-side filtering for distance and price
         if (data) {
-          let filteredData = data;
+          let filteredData = data as ItemWithDistance[];
           
           // Filter by price
           filteredData = filteredData.filter(item => 
@@ -318,102 +334,24 @@ const SearchPage = () => {
                         Refine your search results
                       </SheetDescription>
                     </SheetHeader>
-                    <div className="py-4 space-y-6">
-                      <div className="space-y-4">
-                        <h3 className="text-sm font-medium">Listing Type</h3>
-                        <div className="space-y-2">
-                          <div className="flex items-center space-x-2">
-                            <Checkbox 
-                              id="show-items"
-                              checked={showOnlyItems} 
-                              onCheckedChange={(checked) => {
-                                setShowOnlyItems(checked as boolean);
-                                if (checked) setShowOnlyServices(false);
-                              }}
-                            />
-                            <label htmlFor="show-items">Items only</label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Checkbox 
-                              id="show-services"
-                              checked={showOnlyServices} 
-                              onCheckedChange={(checked) => {
-                                setShowOnlyServices(checked as boolean);
-                                if (checked) setShowOnlyItems(false);
-                              }}
-                            />
-                            <label htmlFor="show-services">Services only</label>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-4">
-                        <div className="flex justify-between">
-                          <h3 className="text-sm font-medium">Distance (miles)</h3>
-                          <span className="text-sm text-gray-500">{maxDistance} miles</span>
-                        </div>
-                        <Slider
-                          defaultValue={[maxDistance]}
-                          max={100}
-                          step={5}
-                          onValueChange={(value) => setMaxDistance(value[0])}
-                          disabled={!userLocation}
-                        />
-                        {!userLocation && (
-                          <p className="text-xs text-amber-600 flex items-center">
-                            <MapPin className="h-3 w-3 mr-1" />
-                            Enable location to use distance filter
-                          </p>
-                        )}
-                      </div>
-                      
-                      <div className="space-y-4">
-                        <div className="flex justify-between">
-                          <h3 className="text-sm font-medium">Price Range</h3>
-                          <span className="text-sm text-gray-500">${priceRange[0]} - ${priceRange[1]}</span>
-                        </div>
-                        <Slider
-                          defaultValue={priceRange}
-                          min={0}
-                          max={1000}
-                          step={10}
-                          onValueChange={(value) => setPriceRange(value)}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="sort">Sort By</Label>
-                        <Select value={sortBy} onValueChange={setSortBy}>
-                          <SelectTrigger id="sort">
-                            <SelectValue placeholder="Sort By" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="newest">Newest First</SelectItem>
-                            <SelectItem value="price_low">Price: Low to High</SelectItem>
-                            <SelectItem value="price_high">Price: High to Low</SelectItem>
-                            <SelectItem value="proximity" disabled={!userLocation}>Nearest to Me</SelectItem>
-                            <SelectItem value="rating">Highest Rated</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div className="flex justify-between pt-4">
-                        <Button 
-                          variant="outline" 
-                          onClick={handleFilterReset}
-                          className="flex items-center"
-                        >
-                          <X className="h-4 w-4 mr-2" />
-                          Reset
-                        </Button>
-                        <Button onClick={() => {
-                          handleSearch({ preventDefault: () => {} } as any);
-                          setShowFilters(false);
-                        }}>
-                          Apply Filters
-                        </Button>
-                      </div>
-                    </div>
+                    <SearchFilters
+                      selectedCategory={selectedCategory}
+                      showOnlyItems={showOnlyItems}
+                      setShowOnlyItems={setShowOnlyItems}
+                      showOnlyServices={showOnlyServices}
+                      setShowOnlyServices={setShowOnlyServices}
+                      maxDistance={maxDistance}
+                      setMaxDistance={setMaxDistance}
+                      priceRange={priceRange}
+                      setPriceRange={setPriceRange}
+                      sortBy={sortBy}
+                      setSortBy={setSortBy}
+                      userLocation={userLocation}
+                      handleFilterReset={handleFilterReset}
+                      handleSearch={handleSearch}
+                      setShowFilters={setShowFilters}
+                      categories={categories}
+                    />
                   </SheetContent>
                 </Sheet>
 

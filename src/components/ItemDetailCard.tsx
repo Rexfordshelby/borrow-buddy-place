@@ -322,32 +322,52 @@ const ItemDetailCard: React.FC<ItemDetailCardProps> = ({ item, owner }) => {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    initialFocus
-                    mode={item.is_service ? "single" : "range"}
-                    defaultMonth={new Date()}
-                    selected={dateRange}
-                    onSelect={(range: any) => {
-                      setDateRange(range);
-                      // For services, make sure end date equals start date
-                      if (range?.from && item.is_service) {
-                        range.to = range.from;
-                      }
-                      
-                      if (range?.from && range?.to) {
-                        const diffTime = Math.abs(range.to.getTime() - range.from.getTime());
-                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-                        setTotalDays(diffDays);
+                  {item.is_service ? (
+                    <Calendar
+                      initialFocus
+                      mode="single"
+                      defaultMonth={new Date()}
+                      selected={dateRange.from}
+                      onSelect={(date) => {
+                        setDateRange({
+                          from: date,
+                          to: date,
+                        });
                         
-                        // Only calculate based on days if not hourly
-                        if (item.price_unit !== 'hour') {
-                          setTotalPrice(Number(item.price) * diffDays);
+                        if (date) {
+                          setTotalDays(1);
+                          if (item.price_unit !== 'hour') {
+                            setTotalPrice(Number(item.price));
+                          }
                         }
-                      }
-                    }}
-                    numberOfMonths={2}
-                    disabled={{ before: new Date() }}
-                  />
+                      }}
+                      numberOfMonths={2}
+                      disabled={{ before: new Date() }}
+                    />
+                  ) : (
+                    <Calendar
+                      initialFocus
+                      mode="range"
+                      defaultMonth={new Date()}
+                      selected={dateRange}
+                      onSelect={(range: any) => {
+                        setDateRange(range);
+                        
+                        if (range?.from && range?.to) {
+                          const diffTime = Math.abs(range.to.getTime() - range.from.getTime());
+                          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                          setTotalDays(diffDays);
+                          
+                          // Only calculate based on days if not hourly
+                          if (item.price_unit !== 'hour') {
+                            setTotalPrice(Number(item.price) * diffDays);
+                          }
+                        }
+                      }}
+                      numberOfMonths={2}
+                      disabled={{ before: new Date() }}
+                    />
+                  )}
                 </PopoverContent>
               </Popover>
             </div>

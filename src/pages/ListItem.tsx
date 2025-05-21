@@ -29,6 +29,23 @@ import { Loader2, ImagePlus, Upload, MapPin } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+interface ItemFormData {
+  title: string;
+  description: string;
+  price: string;
+  price_unit: string;
+  category_id: string;
+  condition: string;
+  location: string;
+  security_deposit: string;
+  is_available: boolean;
+  is_service: boolean;
+  latitude: number | null;
+  longitude: number | null;
+  availability_schedule: string;
+  cancellation_policy: string;
+}
+
 const ListItem = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -38,7 +55,7 @@ const ListItem = () => {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [listingType, setListingType] = useState<"item" | "service">("item");
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<ItemFormData>({
     title: "",
     description: "",
     price: "",
@@ -49,8 +66,8 @@ const ListItem = () => {
     security_deposit: "",
     is_available: true,
     is_service: false,
-    latitude: null as number | null,
-    longitude: null as number | null,
+    latitude: null,
+    longitude: null,
     availability_schedule: "",
     cancellation_policy: "Standard - 24 hours notice"
   });
@@ -226,6 +243,9 @@ const ListItem = () => {
         }
       }
 
+      // Update is_service based on the current listing type
+      setFormData(prev => ({ ...prev, is_service: listingType === "service" }));
+
       const itemData = {
         title: formData.title,
         description: formData.description,
@@ -337,6 +357,14 @@ const ListItem = () => {
       });
     }
   };
+
+  // When the listing type changes, update the is_service field
+  useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      is_service: listingType === "service"
+    }));
+  }, [listingType]);
 
   return (
     <div className="flex flex-col min-h-screen">
