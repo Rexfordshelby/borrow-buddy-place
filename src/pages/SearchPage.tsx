@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -347,6 +346,7 @@ const SearchPage = () => {
                       sortBy={sortBy}
                       setSortBy={setSortBy}
                       userLocation={userLocation}
+                      setUserLocation={setUserLocation}
                       handleFilterReset={handleFilterReset}
                       handleSearch={handleSearch}
                       setShowFilters={setShowFilters}

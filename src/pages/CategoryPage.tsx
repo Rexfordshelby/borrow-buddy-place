@@ -29,13 +29,12 @@ const CategoryPage = () => {
         if (categoryError) throw categoryError;
         setCategory(categoryData);
 
-        // Fetch items in this category
+        // Fix the query to not use profiles relationship which doesn't exist
         const { data: itemsData, error: itemsError } = await supabase
           .from('items')
           .select(`
             *,
-            profiles(username, avatar_url),
-            categories(name)
+            categories:category_id(name)
           `)
           .eq('category_id', categoryData.id)
           .eq('is_available', true)
@@ -43,11 +42,11 @@ const CategoryPage = () => {
 
         if (itemsError) throw itemsError;
         setItems(itemsData || []);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error fetching category data:", error);
         toast({
           title: "Error",
-          description: "Failed to load category data",
+          description: "Failed to load category data: " + error.message,
           variant: "destructive",
         });
       } finally {
@@ -120,6 +119,7 @@ const CategoryPage = () => {
                   reviewCount={10} // Placeholder review count
                   category={item.categories?.name}
                   isVerified={item.is_verified}
+                  isService={item.is_service}
                 />
               ))}
             </div>

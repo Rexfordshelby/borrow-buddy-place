@@ -19,15 +19,21 @@ const UserListings = () => {
       if (!user) return;
 
       try {
+        // Fix the query to use the correct relationship
         const { data, error } = await supabase
           .from('items')
-          .select('*, categories(name)')
+          .select(`
+            *,
+            categories:category_id(name)
+          `)
           .eq('user_id', user.id)
           .order('created_at', { ascending: false });
 
         if (error) throw error;
+        console.log("User listings:", data);
         setListings(data || []);
       } catch (error: any) {
+        console.error("Error fetching listings:", error);
         toast({
           title: "Error",
           description: error.message || "Failed to load your listings",

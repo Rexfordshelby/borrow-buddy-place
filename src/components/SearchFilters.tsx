@@ -27,6 +27,7 @@ interface SearchFiltersProps {
   sortBy: string;
   setSortBy: (value: string) => void;
   userLocation: { latitude: number; longitude: number } | null;
+  setUserLocation: (location: { latitude: number; longitude: number } | null) => void;
   handleFilterReset: () => void;
   handleSearch: (e: React.FormEvent) => void;
   setShowFilters: (value: boolean) => void;
@@ -46,6 +47,7 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
   sortBy,
   setSortBy,
   userLocation,
+  setUserLocation,
   handleFilterReset,
   handleSearch,
   setShowFilters,
@@ -74,6 +76,7 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
         maxDistance={maxDistance}
         setMaxDistance={setMaxDistance}
         userLocation={userLocation}
+        setUserLocation={setUserLocation}
       />
       
       <PriceFilter 

@@ -26,13 +26,12 @@ const Index = () => {
         
         setCategories(categoryData || []);
         
-        // Fetch featured items
+        // Fix the query to not use profiles relationship
         const { data: itemsData } = await supabase
           .from('items')
           .select(`
             *,
-            profiles(username, avatar_url),
-            categories(name, slug)
+            categories:category_id(name, slug)
           `)
           .eq('is_available', true)
           .order('created_at', { ascending: false })
