@@ -1,6 +1,6 @@
 
 import { Link } from "react-router-dom";
-import { Star, MapPin } from "lucide-react";
+import { Star, MapPin, Calendar, Package } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface ItemCardProps {
@@ -14,6 +14,8 @@ interface ItemCardProps {
   reviewCount: number;
   category: string;
   isVerified?: boolean;
+  isService?: boolean;
+  distance?: number;
 }
 
 const ItemCard = ({
@@ -27,6 +29,8 @@ const ItemCard = ({
   reviewCount,
   category,
   isVerified = false,
+  isService = false,
+  distance,
 }: ItemCardProps) => {
   return (
     <Link to={`/item/${id}`} className="group">
@@ -48,6 +52,11 @@ const ItemCard = ({
           >
             {category}
           </Badge>
+          {isService && (
+            <Badge className="absolute bottom-3 left-3 bg-blue-500 hover:bg-blue-600">
+              Service
+            </Badge>
+          )}
         </div>
         <div className="p-4">
           <div className="flex justify-between items-start">
@@ -61,17 +70,30 @@ const ItemCard = ({
               </div>
             </div>
           </div>
-          <div className="flex items-center mt-2 text-sm text-gray-500">
-            <MapPin className="h-3 w-3 mr-1 flex-shrink-0" />
-            <span className="truncate">{location}</span>
+          <div className="flex items-center justify-between mt-2">
+            <div className="flex items-center text-sm text-gray-500">
+              <MapPin className="h-3 w-3 mr-1 flex-shrink-0" />
+              <span className="truncate">{location}</span>
+            </div>
+            {distance && (
+              <span className="text-xs text-gray-500">{distance.toFixed(1)} mi away</span>
+            )}
           </div>
-          <div className="flex items-center mt-2">
+          <div className="flex items-center justify-between mt-2">
             <div className="flex items-center">
               <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
               <span className="ml-1 text-sm font-medium">{rating}</span>
+              <span className="mx-1 text-sm text-gray-500">·</span>
+              <span className="text-sm text-gray-500">{reviewCount} reviews</span>
             </div>
-            <span className="mx-1 text-sm text-gray-500">·</span>
-            <span className="text-sm text-gray-500">{reviewCount} reviews</span>
+            <div className="flex items-center text-xs">
+              {isService ? (
+                <Calendar className="h-3 w-3 mr-1 text-blue-500" />
+              ) : (
+                <Package className="h-3 w-3 mr-1 text-brand-600" />
+              )}
+              <span className="text-gray-500">{isService ? "Service" : "Item"}</span>
+            </div>
           </div>
         </div>
       </div>

@@ -12,7 +12,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, LogOut, Package, Heart, Settings, MessageSquare } from "lucide-react";
+import { User, LogOut, Package, Heart, Settings, MessageSquare, Plus } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 export function NavbarButtons() {
   const { user, profile, signOut } = useAuth();
@@ -32,11 +37,30 @@ export function NavbarButtons() {
 
   return (
     <div className="flex items-center gap-2">
-      <Link to="/list-item">
-        <Button variant="outline" size="sm">
-          List Your Item
-        </Button>
-      </Link>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" size="sm">
+            <Plus className="mr-2 h-4 w-4" />
+            List
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="p-0 w-48">
+          <div className="p-2">
+            <Link to="/list-item">
+              <Button variant="ghost" size="sm" className="w-full justify-start">
+                <Package className="mr-2 h-4 w-4" />
+                <span>List an Item</span>
+              </Button>
+            </Link>
+            <Link to="/list-item?type=service">
+              <Button variant="ghost" size="sm" className="w-full justify-start">
+                <MessageSquare className="mr-2 h-4 w-4" />
+                <span>Offer a Service</span>
+              </Button>
+            </Link>
+          </div>
+        </PopoverContent>
+      </Popover>
       
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

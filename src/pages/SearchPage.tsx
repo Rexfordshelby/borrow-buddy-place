@@ -15,19 +15,60 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/components/ui/use-toast";
-import { Search } from "lucide-react";
+import { Search, MapPin, SlidersHorizontal, X } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
+import { Badge } from "@/components/ui/badge";
 
 const SearchPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   
   const initialQuery = searchParams.get("q") || "";
   const initialCategory = searchParams.get("category") || "";
+  const initialType = searchParams.get("type") || "";
+  const initialDistance = searchParams.get("distance") || "25";
   
   const [searchTerm, setSearchTerm] = useState(initialQuery);
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
+  const [showOnlyServices, setShowOnlyServices] = useState(initialType === "service");
+  const [showOnlyItems, setShowOnlyItems] = useState(initialType === "item");
+  const [maxDistance, setMaxDistance] = useState(parseInt(initialDistance));
+  const [showFilters, setShowFilters] = useState(false);
+  const [sortBy, setSortBy] = useState(searchParams.get("sort") || "newest");
+  const [priceRange, setPriceRange] = useState([
+    parseInt(searchParams.get("minPrice") || "0"),
+    parseInt(searchParams.get("maxPrice") || "1000")
+  ]);
+
+  // Get user location
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          });
+        },
+        (error) => {
+          console.error("Error getting location:", error);
+        }
+      );
+    }
+  }, []);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -46,6 +87,21 @@ const SearchPage = () => {
 
     fetchCategories();
   }, []);
+
+  // Calculate distance between two geographic coordinates
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return Infinity;
+    
+    const R = 3958.8; // Earth's radius in miles
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2); 
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+    return R * c;
+  };
 
   useEffect(() => {
     const fetchItems = async () => {
@@ -70,10 +126,78 @@ const SearchPage = () => {
           query = query.eq('categories.slug', initialCategory);
         }
         
-        const { data, error } = await query.order('created_at', { ascending: false });
+        // Filter by type (service or item)
+        if (initialType === 'service') {
+          query = query.eq('is_service', true);
+        } else if (initialType === 'item') {
+          query = query.eq('is_service', false);
+        }
+
+        // Price range filter (applied after fetching)
+        // We'll do client-side filtering for price range and distance since we need to calculate distance client-side
+        
+        // Sort order
+        if (sortBy === 'price_low') {
+          query = query.order('price', { ascending: true });
+        } else if (sortBy === 'price_high') {
+          query = query.order('price', { ascending: false });
+        } else if (sortBy === 'rating') {
+          // Sort by rating would go here if we had a rating system
+          query = query.order('created_at', { ascending: false });
+        } else {
+          // Default to newest
+          query = query.order('created_at', { ascending: false });
+        }
+        
+        let { data, error } = await query;
         
         if (error) throw error;
-        setItems(data || []);
+
+        // Client-side filtering for distance and price
+        if (data) {
+          let filteredData = data;
+          
+          // Filter by price
+          filteredData = filteredData.filter(item => 
+            item.price >= priceRange[0] && 
+            item.price <= priceRange[1]
+          );
+          
+          // Filter by distance if user location is available
+          if (userLocation) {
+            filteredData = filteredData.map(item => {
+              if (item.latitude && item.longitude) {
+                const distance = calculateDistance(
+                  userLocation.latitude,
+                  userLocation.longitude,
+                  item.latitude,
+                  item.longitude
+                );
+                return {...item, distance};
+              }
+              return {...item, distance: null};
+            });
+
+            // Only show items within the selected max distance
+            filteredData = filteredData.filter(item => 
+              item.distance === null || item.distance <= maxDistance
+            );
+
+            // Sort by proximity if that's the selected sort order
+            if (sortBy === 'proximity') {
+              filteredData.sort((a, b) => {
+                // Handle null distances (push to end)
+                if (a.distance === null) return 1;
+                if (b.distance === null) return -1;
+                return a.distance - b.distance;
+              });
+            }
+          }
+          
+          setItems(filteredData);
+        } else {
+          setItems([]);
+        }
       } catch (error) {
         console.error("Error searching items:", error);
         toast({
@@ -87,7 +211,7 @@ const SearchPage = () => {
     };
 
     fetchItems();
-  }, [initialQuery, initialCategory]);
+  }, [initialQuery, initialCategory, initialType, maxDistance, priceRange, sortBy, userLocation]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,7 +224,45 @@ const SearchPage = () => {
       params.set("category", selectedCategory);
     }
     
+    // Set listing type filter
+    if (showOnlyServices) {
+      params.set("type", "service");
+    } else if (showOnlyItems) {
+      params.set("type", "item");
+    }
+    
+    // Set distance filter
+    params.set("distance", maxDistance.toString());
+    
+    // Set price range
+    params.set("minPrice", priceRange[0].toString());
+    params.set("maxPrice", priceRange[1].toString());
+    
+    // Set sort order
+    params.set("sort", sortBy);
+    
     setSearchParams(params);
+  };
+
+  const handleFilterReset = () => {
+    setSearchTerm("");
+    setSelectedCategory("");
+    setShowOnlyServices(false);
+    setShowOnlyItems(false);
+    setMaxDistance(25);
+    setPriceRange([0, 1000]);
+    setSortBy("newest");
+    setSearchParams({});
+  };
+
+  const getActiveFiltersCount = () => {
+    let count = 0;
+    if (selectedCategory) count++;
+    if (showOnlyServices || showOnlyItems) count++;
+    if (maxDistance !== 25) count++;
+    if (priceRange[0] > 0 || priceRange[1] < 1000) count++;
+    if (sortBy !== "newest") count++;
+    return count;
   };
 
   return (
@@ -115,7 +277,7 @@ const SearchPage = () => {
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                   <Input
                     type="text"
-                    placeholder="What do you need to borrow?"
+                    placeholder="What do you need to borrow or book?"
                     className="pl-10"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -136,6 +298,125 @@ const SearchPage = () => {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <Sheet open={showFilters} onOpenChange={setShowFilters}>
+                  <SheetTrigger asChild>
+                    <Button variant="outline" className="md:w-auto w-full justify-between">
+                      <span className="flex items-center">
+                        <SlidersHorizontal className="h-4 w-4 mr-2" />
+                        Filters
+                      </span>
+                      {getActiveFiltersCount() > 0 && (
+                        <Badge className="ml-2 bg-brand-500">{getActiveFiltersCount()}</Badge>
+                      )}
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent>
+                    <SheetHeader>
+                      <SheetTitle>Search Filters</SheetTitle>
+                      <SheetDescription>
+                        Refine your search results
+                      </SheetDescription>
+                    </SheetHeader>
+                    <div className="py-4 space-y-6">
+                      <div className="space-y-4">
+                        <h3 className="text-sm font-medium">Listing Type</h3>
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <Checkbox 
+                              id="show-items"
+                              checked={showOnlyItems} 
+                              onCheckedChange={(checked) => {
+                                setShowOnlyItems(checked as boolean);
+                                if (checked) setShowOnlyServices(false);
+                              }}
+                            />
+                            <label htmlFor="show-items">Items only</label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Checkbox 
+                              id="show-services"
+                              checked={showOnlyServices} 
+                              onCheckedChange={(checked) => {
+                                setShowOnlyServices(checked as boolean);
+                                if (checked) setShowOnlyItems(false);
+                              }}
+                            />
+                            <label htmlFor="show-services">Services only</label>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        <div className="flex justify-between">
+                          <h3 className="text-sm font-medium">Distance (miles)</h3>
+                          <span className="text-sm text-gray-500">{maxDistance} miles</span>
+                        </div>
+                        <Slider
+                          defaultValue={[maxDistance]}
+                          max={100}
+                          step={5}
+                          onValueChange={(value) => setMaxDistance(value[0])}
+                          disabled={!userLocation}
+                        />
+                        {!userLocation && (
+                          <p className="text-xs text-amber-600 flex items-center">
+                            <MapPin className="h-3 w-3 mr-1" />
+                            Enable location to use distance filter
+                          </p>
+                        )}
+                      </div>
+                      
+                      <div className="space-y-4">
+                        <div className="flex justify-between">
+                          <h3 className="text-sm font-medium">Price Range</h3>
+                          <span className="text-sm text-gray-500">${priceRange[0]} - ${priceRange[1]}</span>
+                        </div>
+                        <Slider
+                          defaultValue={priceRange}
+                          min={0}
+                          max={1000}
+                          step={10}
+                          onValueChange={(value) => setPriceRange(value)}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="sort">Sort By</Label>
+                        <Select value={sortBy} onValueChange={setSortBy}>
+                          <SelectTrigger id="sort">
+                            <SelectValue placeholder="Sort By" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="newest">Newest First</SelectItem>
+                            <SelectItem value="price_low">Price: Low to High</SelectItem>
+                            <SelectItem value="price_high">Price: High to Low</SelectItem>
+                            <SelectItem value="proximity" disabled={!userLocation}>Nearest to Me</SelectItem>
+                            <SelectItem value="rating">Highest Rated</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="flex justify-between pt-4">
+                        <Button 
+                          variant="outline" 
+                          onClick={handleFilterReset}
+                          className="flex items-center"
+                        >
+                          <X className="h-4 w-4 mr-2" />
+                          Reset
+                        </Button>
+                        <Button onClick={() => {
+                          handleSearch({ preventDefault: () => {} } as any);
+                          setShowFilters(false);
+                        }}>
+                          Apply Filters
+                        </Button>
+                      </div>
+                    </div>
+                  </SheetContent>
+                </Sheet>
+
                 <Button type="submit">Search</Button>
               </div>
             </form>
@@ -150,6 +431,91 @@ const SearchPage = () => {
                 : "No results found"
             )}
           </h1>
+
+          {getActiveFiltersCount() > 0 && (
+            <div className="flex flex-wrap gap-2 mb-6">
+              {selectedCategory && (
+                <Badge variant="outline" className="flex items-center gap-1">
+                  Category: {categories.find(c => c.slug === selectedCategory)?.name || selectedCategory}
+                  <X 
+                    className="h-3 w-3 ml-1 cursor-pointer" 
+                    onClick={() => {
+                      setSelectedCategory("");
+                      handleSearch({ preventDefault: () => {} } as any);
+                    }} 
+                  />
+                </Badge>
+              )}
+              {showOnlyServices && (
+                <Badge variant="outline" className="flex items-center gap-1">
+                  Services only
+                  <X 
+                    className="h-3 w-3 ml-1 cursor-pointer" 
+                    onClick={() => {
+                      setShowOnlyServices(false);
+                      handleSearch({ preventDefault: () => {} } as any);
+                    }} 
+                  />
+                </Badge>
+              )}
+              {showOnlyItems && (
+                <Badge variant="outline" className="flex items-center gap-1">
+                  Items only
+                  <X 
+                    className="h-3 w-3 ml-1 cursor-pointer" 
+                    onClick={() => {
+                      setShowOnlyItems(false);
+                      handleSearch({ preventDefault: () => {} } as any);
+                    }} 
+                  />
+                </Badge>
+              )}
+              {(priceRange[0] > 0 || priceRange[1] < 1000) && (
+                <Badge variant="outline" className="flex items-center gap-1">
+                  Price: ${priceRange[0]} - ${priceRange[1]}
+                  <X 
+                    className="h-3 w-3 ml-1 cursor-pointer" 
+                    onClick={() => {
+                      setPriceRange([0, 1000]);
+                      handleSearch({ preventDefault: () => {} } as any);
+                    }} 
+                  />
+                </Badge>
+              )}
+              {maxDistance !== 25 && (
+                <Badge variant="outline" className="flex items-center gap-1">
+                  Within {maxDistance} miles
+                  <X 
+                    className="h-3 w-3 ml-1 cursor-pointer" 
+                    onClick={() => {
+                      setMaxDistance(25);
+                      handleSearch({ preventDefault: () => {} } as any);
+                    }} 
+                  />
+                </Badge>
+              )}
+              {sortBy !== "newest" && (
+                <Badge variant="outline" className="flex items-center gap-1">
+                  Sorted by: {sortBy.replace('_', ' ')}
+                  <X 
+                    className="h-3 w-3 ml-1 cursor-pointer" 
+                    onClick={() => {
+                      setSortBy("newest");
+                      handleSearch({ preventDefault: () => {} } as any);
+                    }} 
+                  />
+                </Badge>
+              )}
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={handleFilterReset}
+                className="text-gray-500 text-xs"
+              >
+                Clear all
+              </Button>
+            </div>
+          )}
 
           {loading ? (
             <div className="flex justify-center items-center h-64">
@@ -178,10 +544,12 @@ const SearchPage = () => {
                       priceUnit={item.price_unit}
                       imageUrl={item.image_url || "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=600&auto=format&fit=crop&q=80"}
                       location={item.location}
-                      rating={4.5} // Placeholder rating
-                      reviewCount={10} // Placeholder review count
+                      rating={item.rating || 4.5} // Use item rating or placeholder
+                      reviewCount={item.review_count || 0} // Use item review count or placeholder
                       category={item.categories?.name}
                       isVerified={item.is_verified}
+                      isService={item.is_service}
+                      distance={item.distance}
                     />
                   ))}
                 </div>
