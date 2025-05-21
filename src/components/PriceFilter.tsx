@@ -4,9 +4,14 @@ import { Slider } from "@/components/ui/slider";
 interface PriceFilterProps {
   priceRange: number[];
   setPriceRange: (value: number[]) => void;
+  maxPrice?: number;
 }
 
-const PriceFilter = ({ priceRange, setPriceRange }: PriceFilterProps) => {
+const PriceFilter = ({ 
+  priceRange, 
+  setPriceRange, 
+  maxPrice = 1000 
+}: PriceFilterProps) => {
   return (
     <div className="space-y-4">
       <div className="flex justify-between">
@@ -16,7 +21,7 @@ const PriceFilter = ({ priceRange, setPriceRange }: PriceFilterProps) => {
       <Slider
         defaultValue={priceRange}
         min={0}
-        max={1000}
+        max={maxPrice}
         step={10}
         onValueChange={(value) => setPriceRange(value)}
       />

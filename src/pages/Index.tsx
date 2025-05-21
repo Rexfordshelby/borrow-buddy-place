@@ -66,6 +66,7 @@ const Index = () => {
                   title={category.name}
                   icon={category.icon}
                   slug={category.slug}
+                  itemCount={0} // Adding the missing itemCount prop
                 />
               ))}
             </div>
