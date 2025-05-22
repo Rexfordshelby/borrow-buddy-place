@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -12,6 +13,9 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar as CalendarIcon, Star, MapPin, Heart, Share, Shield, User, MessageCircle } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { DateRange } from "react-day-picker";
+import ReviewsList from "@/components/ReviewsList";
+import ReviewForm from "@/components/ReviewForm";
+import VerifiedBadge from "@/components/VerifiedBadge";
 
 const ItemDetail = () => {
   const { id } = useParams();
@@ -25,6 +29,9 @@ const ItemDetail = () => {
     to: undefined,
   });
   const [totalPrice, setTotalPrice] = useState(0);
+  const [userReview, setUserReview] = useState<any>(null);
+  const [userCanReview, setUserCanReview] = useState(false);
+  const [userCompletedBooking, setUserCompletedBooking] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchItem = async () => {
@@ -33,7 +40,7 @@ const ItemDetail = () => {
           .from('items')
           .select(`
             *,
-            categories(name)
+            categories:category_id(name)
           `)
           .eq('id', id)
           .single();
@@ -53,6 +60,37 @@ const ItemDetail = () => {
           if (ownerError) throw ownerError;
           setOwner(ownerData);
         }
+
+        // Check if logged-in user can review
+        if (user) {
+          // Check if user has a completed booking
+          const { data: bookingData } = await supabase
+            .from('bookings')
+            .select('id')
+            .eq('item_id', id)
+            .eq('renter_id', user.id)
+            .eq('status', 'completed')
+            .order('end_date', { ascending: false })
+            .limit(1);
+
+          const canReview = bookingData && bookingData.length > 0;
+          setUserCanReview(canReview);
+          
+          if (canReview) {
+            setUserCompletedBooking(bookingData[0].id);
+            
+            // Check if user already left a review
+            const { data: reviewData } = await supabase
+              .from('reviews')
+              .select('*')
+              .eq('item_id', id)
+              .eq('reviewer_id', user.id)
+              .eq('booking_id', bookingData[0].id)
+              .maybeSingle();
+              
+            setUserReview(reviewData);
+          }
+        }
       } catch (error) {
         console.error("Error fetching item:", error);
         toast({
@@ -68,7 +106,7 @@ const ItemDetail = () => {
     if (id) {
       fetchItem();
     }
-  }, [id]);
+  }, [id, user]);
 
   useEffect(() => {
     // Calculate price based on selected dates
@@ -130,6 +168,43 @@ const ItemDetail = () => {
         description: error.message || "An unexpected error occurred",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleReviewSubmit = async ({ rating, comment }: { rating: number; comment: string }) => {
+    if (!user || !id || !userCompletedBooking) return;
+    
+    try {
+      const { error } = await supabase
+        .from('reviews')
+        .insert({
+          item_id: id,
+          reviewer_id: user.id,
+          reviewee_id: item.user_id,
+          booking_id: userCompletedBooking,
+          rating,
+          comment,
+        });
+        
+      if (error) throw error;
+      
+      // Refresh the review status
+      const { data: reviewData } = await supabase
+        .from('reviews')
+        .select('*')
+        .eq('item_id', id)
+        .eq('reviewer_id', user.id)
+        .eq('booking_id', userCompletedBooking)
+        .single();
+        
+      setUserReview(reviewData);
+      setUserCanReview(false);
+      
+      // Refresh the page to show the new review
+      window.location.reload();
+    } catch (error) {
+      console.error("Error submitting review:", error);
+      throw error;
     }
   };
 
@@ -223,7 +298,10 @@ const ItemDetail = () => {
                   {item.is_verified && (
                     <>
                       <span>•</span>
-                      <Badge className="bg-green-500 hover:bg-green-600">Verified</Badge>
+                      <Badge className="bg-green-500 hover:bg-green-600 gap-1">
+                        <UserCheck className="h-3 w-3" />
+                        Verified
+                      </Badge>
                     </>
                   )}
                 </div>
@@ -247,6 +325,7 @@ const ItemDetail = () => {
                 <TabsList>
                   <TabsTrigger value="description">Description</TabsTrigger>
                   <TabsTrigger value="condition">Condition</TabsTrigger>
+                  <TabsTrigger value="reviews">Reviews</TabsTrigger>
                 </TabsList>
                 <TabsContent value="description">
                   <div className="bg-white p-6 rounded-lg border">
@@ -256,6 +335,24 @@ const ItemDetail = () => {
                 <TabsContent value="condition">
                   <div className="bg-white p-6 rounded-lg border">
                     <p>{item.condition}</p>
+                  </div>
+                </TabsContent>
+                <TabsContent value="reviews">
+                  <div className="bg-white p-6 rounded-lg border">
+                    {userCanReview && !userReview && (
+                      <div className="mb-6">
+                        <h3 className="text-xl font-medium mb-4">Write a Review</h3>
+                        <ReviewForm
+                          itemId={id!}
+                          bookingId={userCompletedBooking!}
+                          revieweeId={item.user_id}
+                          onReviewSubmit={handleReviewSubmit}
+                        />
+                        <Separator className="my-6" />
+                      </div>
+                    )}
+                    <h3 className="text-xl font-medium mb-4">Customer Reviews</h3>
+                    <ReviewsList itemId={id} />
                   </div>
                 </TabsContent>
               </Tabs>
@@ -349,11 +446,14 @@ const ItemDetail = () => {
                             </div>
                           )}
                           <div className="ml-3">
-                            <div className="font-medium">{owner.full_name || owner.username}</div>
+                            <div className="font-medium flex items-center">
+                              {owner.full_name || owner.username}
+                              {owner.is_verified && <VerifiedBadge size="sm" className="ml-1" />}
+                            </div>
                             <div className="text-sm text-gray-500">
                               <div className="flex items-center">
                                 <Star className="h-3 w-3 text-yellow-400 fill-yellow-400" />
-                                <span className="ml-1">{owner.rating.toFixed(1)}</span>
+                                <span className="ml-1">{owner.rating?.toFixed(1) || "New"}</span>
                               </div>
                             </div>
                           </div>

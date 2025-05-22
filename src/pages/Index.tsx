@@ -26,7 +26,7 @@ const Index = () => {
         
         setCategories(categoryData || []);
         
-        // Fix the query to not use profiles relationship
+        // Fix the query to use the proper relationship
         const { data: itemsData } = await supabase
           .from('items')
           .select(`

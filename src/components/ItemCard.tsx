@@ -1,7 +1,8 @@
 
 import { Link } from "react-router-dom";
-import { Star, MapPin, Calendar, Package } from "lucide-react";
+import { Star, MapPin, Calendar, Package, UserCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import VerifiedBadge from "./VerifiedBadge";
 
 interface ItemCardProps {
   id: string;
@@ -42,7 +43,8 @@ const ItemCard = ({
             className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
           />
           {isVerified && (
-            <Badge className="absolute top-3 left-3 bg-green-500 hover:bg-green-600">
+            <Badge className="absolute top-3 left-3 bg-green-500 hover:bg-green-600 flex items-center gap-1">
+              <UserCheck className="h-3 w-3" />
               Verified
             </Badge>
           )}
@@ -75,7 +77,7 @@ const ItemCard = ({
               <MapPin className="h-3 w-3 mr-1 flex-shrink-0" />
               <span className="truncate">{location}</span>
             </div>
-            {distance && (
+            {distance !== undefined && (
               <span className="text-xs text-gray-500">{distance.toFixed(1)} mi away</span>
             )}
           </div>

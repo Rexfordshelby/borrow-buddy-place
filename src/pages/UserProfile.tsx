@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User, Star, MapPin, MessageCircle } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/context/AuthContext";
+import VerifiedBadge from "@/components/VerifiedBadge";
 
 const UserProfile = () => {
   const { id } = useParams();
@@ -39,7 +40,7 @@ const UserProfile = () => {
           .from("items")
           .select(`
             *,
-            categories(name)
+            categories:category_id(name)
           `)
           .eq("user_id", id)
           .eq("is_available", true);
@@ -132,10 +133,16 @@ const UserProfile = () => {
                     <User className="h-12 w-12 text-gray-400" />
                   </div>
                 )}
+                {profile.is_verified && (
+                  <div className="absolute bottom-0 right-0 bg-white p-1 rounded-full shadow">
+                    <VerifiedBadge size="md" />
+                  </div>
+                )}
               </div>
               <div className="flex-1 text-center md:text-left">
-                <h1 className="text-2xl font-bold mb-2">
+                <h1 className="text-2xl font-bold mb-2 flex items-center gap-2 justify-center md:justify-start">
                   {profile.full_name || profile.username || "Anonymous User"}
+                  {profile.is_verified && <VerifiedBadge size="sm" />}
                 </h1>
                 <div className="flex flex-wrap justify-center md:justify-start gap-4 text-sm text-gray-600 mb-4">
                   <div className="flex items-center">

@@ -1,53 +1,33 @@
 
--- Create storage bucket for item images
-INSERT INTO storage.buckets (id, name, public) VALUES ('item-images', 'Item Images', true);
+-- Create a private bucket for verification documents
+insert into storage.buckets (id, name, public)
+values ('verification', 'verification', false);
 
--- Create storage bucket for user avatars
-INSERT INTO storage.buckets (id, name, public) VALUES ('avatars', 'User Avatars', true);
+-- Set up RLS policies for the verification bucket
+create policy "Users can upload their own verification documents"
+on storage.objects for insert to authenticated
+with check (
+  bucket_id = 'verification' and
+  (auth.uid())::text = (storage.foldername(name))[1]
+);
 
--- Set up storage policies
-CREATE POLICY "Anyone can view item images"
-ON storage.objects
-FOR SELECT
-USING (bucket_id = 'item-images');
+create policy "Users can view their own verification documents"
+on storage.objects for select to authenticated
+using (
+  bucket_id = 'verification' and
+  (auth.uid())::text = (storage.foldername(name))[1]
+);
 
-CREATE POLICY "Anyone can view avatars"
-ON storage.objects
-FOR SELECT
-USING (bucket_id = 'avatars');
+create policy "Users can update their own verification documents"
+on storage.objects for update to authenticated
+using (
+  bucket_id = 'verification' and
+  (auth.uid())::text = (storage.foldername(name))[1]
+);
 
-CREATE POLICY "Authenticated users can upload item images"
-ON storage.objects
-FOR INSERT
-TO authenticated
-WITH CHECK (bucket_id = 'item-images' AND auth.uid() = owner);
-
-CREATE POLICY "Authenticated users can upload avatars"
-ON storage.objects
-FOR INSERT
-TO authenticated
-WITH CHECK (bucket_id = 'avatars' AND auth.uid() = owner);
-
-CREATE POLICY "Users can update their own item images"
-ON storage.objects
-FOR UPDATE
-TO authenticated
-USING (bucket_id = 'item-images' AND auth.uid() = owner);
-
-CREATE POLICY "Users can update their own avatars"
-ON storage.objects
-FOR UPDATE
-TO authenticated
-USING (bucket_id = 'avatars' AND auth.uid() = owner);
-
-CREATE POLICY "Users can delete their own item images"
-ON storage.objects
-FOR DELETE
-TO authenticated
-USING (bucket_id = 'item-images' AND auth.uid() = owner);
-
-CREATE POLICY "Users can delete their own avatars"
-ON storage.objects
-FOR DELETE
-TO authenticated
-USING (bucket_id = 'avatars' AND auth.uid() = owner);
+create policy "Users can delete their own verification documents"
+on storage.objects for delete to authenticated
+using (
+  bucket_id = 'verification' and
+  (auth.uid())::text = (storage.foldername(name))[1]
+);
