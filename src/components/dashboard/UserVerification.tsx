@@ -28,6 +28,8 @@ const UserVerification = () => {
       if (!user) return;
 
       try {
+        console.log("Fetching verification status for user:", user.id);
+        
         // Check if the verification_status column exists
         const { data, error } = await supabase
           .from("profiles")
@@ -36,16 +38,17 @@ const UserVerification = () => {
           .single();
 
         if (error) {
-          // If the column doesn't exist yet, just handle gracefully
+          // If there's an error, handle gracefully
           console.error("Error fetching verification status:", error);
           setIsVerified(false);
           setVerificationStatus(null);
         } else {
+          console.log("Verification data received:", data);
           setIsVerified(data?.is_verified || false);
           setVerificationStatus(data?.verification_status || null);
         }
       } catch (error) {
-        console.error("Error fetching verification status:", error);
+        console.error("Error in verification status fetch:", error);
       } finally {
         setLoading(false);
       }

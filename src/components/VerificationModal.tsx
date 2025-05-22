@@ -32,6 +32,9 @@ const VerificationModal = ({ isOpen, onClose, onVerified }: VerificationModalPro
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
 
+  // Add logging to check the user object
+  console.log("VerificationModal - Current user:", user);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setIdFile(e.target.files[0]);
@@ -39,20 +42,32 @@ const VerificationModal = ({ isOpen, onClose, onVerified }: VerificationModalPro
   };
 
   const handleIdUpload = async () => {
-    if (!idFile || !user) return;
+    if (!idFile || !user) {
+      console.log("Missing required data:", { idFile: !!idFile, user: !!user });
+      return;
+    }
     
     setIsLoading(true);
     
     try {
+      console.log("Starting ID verification upload process");
+      
       // Upload ID to storage
       const fileExt = idFile.name.split('.').pop();
       const filePath = `verification/${user.id}/id.${fileExt}`;
       
-      const { error: uploadError } = await supabase.storage
+      console.log("Uploading to path:", filePath);
+      
+      const { error: uploadError, data: uploadData } = await supabase.storage
         .from('verification')
         .upload(filePath, idFile, { upsert: true });
         
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error("Upload error:", uploadError);
+        throw uploadError;
+      }
+
+      console.log("Upload successful:", uploadData);
 
       // Mark user as pending verification
       const { error: updateError } = await supabase
@@ -63,7 +78,12 @@ const VerificationModal = ({ isOpen, onClose, onVerified }: VerificationModalPro
         })
         .eq('id', user.id);
       
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error("Profile update error:", updateError);
+        throw updateError;
+      }
+
+      console.log("Profile updated successfully");
       
       toast({
         title: "Verification in progress",
@@ -73,6 +93,7 @@ const VerificationModal = ({ isOpen, onClose, onVerified }: VerificationModalPro
       
       onClose();
     } catch (error: any) {
+      console.error("Verification process failed:", error);
       toast({
         title: "Verification failed",
         description: error.message || "There was an error uploading your ID",
@@ -84,21 +105,29 @@ const VerificationModal = ({ isOpen, onClose, onVerified }: VerificationModalPro
   };
 
   const handleSendOtp = async () => {
-    if (!phone || !user) return;
+    if (!phone || !user) {
+      console.log("Missing required data for OTP:", { phone: !!phone, user: !!user });
+      return;
+    }
     
     setIsLoading(true);
     
     try {
+      console.log("Initiating OTP send process for phone:", phone);
+      
       // Mock OTP sending - in a real app this would call an API or edge function
       // await supabase.functions.invoke("send-otp", { body: { phone } });
       
+      // For development purposes, we'll just simulate the OTP being sent
       toast({
         title: "OTP sent",
         description: "Check your phone for the verification code",
       });
       
       setOtpSent(true);
+      console.log("OTP sent successfully (mock)");
     } catch (error: any) {
+      console.error("OTP send error:", error);
       toast({
         title: "Failed to send OTP",
         description: error.message || "There was an error sending the OTP",
@@ -110,11 +139,20 @@ const VerificationModal = ({ isOpen, onClose, onVerified }: VerificationModalPro
   };
 
   const handleVerifyOtp = async () => {
-    if (!otp || !phone || !user) return;
+    if (!otp || !phone || !user) {
+      console.log("Missing required data for OTP verification:", { 
+        otp: !!otp, 
+        phone: !!phone, 
+        user: !!user 
+      });
+      return;
+    }
     
     setIsLoading(true);
     
     try {
+      console.log("Starting OTP verification process");
+      
       // Mock OTP verification - in a real app this would call an API or edge function
       // const { data, error } = await supabase.functions.invoke("verify-otp", { 
       //   body: { phone, otp } 
@@ -132,7 +170,12 @@ const VerificationModal = ({ isOpen, onClose, onVerified }: VerificationModalPro
         })
         .eq('id', user.id);
       
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error("Profile verification update error:", updateError);
+        throw updateError;
+      }
+
+      console.log("Profile verification completed successfully");
       
       toast({
         title: "Verification successful",
@@ -142,6 +185,7 @@ const VerificationModal = ({ isOpen, onClose, onVerified }: VerificationModalPro
       onVerified();
       onClose();
     } catch (error: any) {
+      console.error("OTP verification error:", error);
       toast({
         title: "Verification failed",
         description: error.message || "The OTP you entered is incorrect",

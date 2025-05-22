@@ -218,6 +218,9 @@ export type Database = {
           service_skills: string[] | null
           updated_at: string
           username: string | null
+          verification_status: string | null
+          verification_submitted_at: string | null
+          verified_at: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -232,6 +235,9 @@ export type Database = {
           service_skills?: string[] | null
           updated_at?: string
           username?: string | null
+          verification_status?: string | null
+          verification_submitted_at?: string | null
+          verified_at?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -246,6 +252,9 @@ export type Database = {
           service_skills?: string[] | null
           updated_at?: string
           username?: string | null
+          verification_status?: string | null
+          verification_submitted_at?: string | null
+          verified_at?: string | null
         }
         Relationships: []
       }
