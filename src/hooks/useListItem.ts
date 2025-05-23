@@ -35,20 +35,19 @@ export const useListItem = () => {
 
       logger.debug("Upload details:", { fileExt, fileName, filePath });
 
+      // Note: Upload progress tracking is not available in the current Supabase storage API
       const { error: uploadError, data } = await supabase.storage
         .from("items")
         .upload(filePath, file, {
           upsert: true,
-          onUploadProgress: (progress) => {
-            const percent = Math.round((progress.loaded / progress.total) * 100);
-            setUploadProgress(percent);
-            logger.debug(`Upload progress: ${percent}%`);
-          },
         });
 
       if (uploadError) {
         throw uploadError;
       }
+
+      // Simulate progress for UI feedback
+      setUploadProgress(100);
 
       const { data: urlData } = supabase.storage
         .from("items")
