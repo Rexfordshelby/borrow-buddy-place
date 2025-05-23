@@ -18,11 +18,6 @@ interface Message {
   receiver_id: string;
   created_at: string;
   is_read: boolean;
-  sender?: {
-    avatar_url: string;
-    username: string;
-    full_name: string;
-  };
 }
 
 interface Conversation {
@@ -64,100 +59,43 @@ const Messages = () => {
     
     setLoading(true);
     try {
-      const { data: sentMessages, error: sentError } = await supabase
+      // Simplified query without relationships
+      const { data: messagesData, error } = await supabase
         .from('messages')
-        .select(`
-          receiver_id,
-          content,
-          created_at,
-          is_read,
-          profiles!messages_receiver_id_fkey(username, avatar_url, full_name)
-        `)
-        .eq('sender_id', user.id)
+        .select('*')
+        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
         .order('created_at', { ascending: false });
 
-      const { data: receivedMessages, error: receivedError } = await supabase
-        .from('messages')
-        .select(`
-          sender_id,
-          content,
-          created_at,
-          is_read,
-          profiles!messages_sender_id_fkey(username, avatar_url, full_name)
-        `)
-        .eq('receiver_id', user.id)
-        .order('created_at', { ascending: false });
+      if (error) throw error;
 
-      if (sentError || receivedError) {
-        throw sentError || receivedError;
-      }
-
-      // Process and combine conversations
+      // Process conversations manually
       const conversationMap = new Map<string, Conversation>();
 
-      // Process sent messages
-      sentMessages?.forEach((message) => {
-        const otherUserId = message.receiver_id;
-        const profile = message.profiles;
+      messagesData?.forEach((message) => {
+        const otherUserId = message.sender_id === user.id ? message.receiver_id : message.sender_id;
         
-        if (!conversationMap.has(otherUserId) && profile) {
+        if (!conversationMap.has(otherUserId)) {
           conversationMap.set(otherUserId, {
             id: otherUserId,
-            username: profile.username || 'User',
-            avatar_url: profile.avatar_url,
-            full_name: profile.full_name || 'User',
+            username: 'User',
+            avatar_url: '',
+            full_name: 'User',
             last_message: message.content,
             last_message_time: message.created_at,
-            unread_count: 0
+            unread_count: (!message.is_read && message.receiver_id === user.id) ? 1 : 0
           });
         }
       });
 
-      // Process received messages
-      receivedMessages?.forEach((message) => {
-        const otherUserId = message.sender_id;
-        const profile = message.profiles;
-        
-        if (!conversationMap.has(otherUserId) && profile) {
-          conversationMap.set(otherUserId, {
-            id: otherUserId,
-            username: profile.username || 'User',
-            avatar_url: profile.avatar_url,
-            full_name: profile.full_name || 'User',
-            last_message: message.content,
-            last_message_time: message.created_at,
-            unread_count: message.is_read ? 0 : 1
-          });
-        } else if (conversationMap.has(otherUserId)) {
-          // Update unread count
-          const conversation = conversationMap.get(otherUserId)!;
-          if (!message.is_read) {
-            conversation.unread_count += 1;
-          }
-          
-          // Update last message if it's newer
-          const currentTime = new Date(conversation.last_message_time);
-          const messageTime = new Date(message.created_at);
-          if (messageTime > currentTime) {
-            conversation.last_message = message.content;
-            conversation.last_message_time = message.created_at;
-          }
-          
-          conversationMap.set(otherUserId, conversation);
-        }
-      });
-
-      // Convert map to array and sort by last message time
       const sortedConversations = Array.from(conversationMap.values())
         .sort((a, b) => new Date(b.last_message_time).getTime() - new Date(a.last_message_time).getTime());
       
       setConversations(sortedConversations);
       
-      // If we have conversations and none selected, select the first one
       if (sortedConversations.length > 0 && !selectedConversation) {
         setSelectedConversation(sortedConversations[0].id);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching conversations:', error);
       toast({
         title: "Error loading conversations",
@@ -173,20 +111,16 @@ const Messages = () => {
     if (!user) return;
     
     try {
-      // Fetch messages between current user and selected user
+      // Simplified query without relationships
       const { data, error } = await supabase
         .from('messages')
-        .select(`
-          *,
-          sender:profiles!messages_sender_id_fkey(avatar_url, username, full_name)
-        `)
+        .select('*')
         .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
         .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
 
-      // Filter messages to only include those between these two users
       const filteredMessages = data.filter(message => 
         (message.sender_id === user.id && message.receiver_id === userId) || 
         (message.sender_id === userId && message.receiver_id === user.id)
@@ -205,7 +139,6 @@ const Messages = () => {
           .update({ is_read: true })
           .in('id', unreadMessageIds);
         
-        // Refresh conversations to update unread counts
         fetchConversations();
       }
     } catch (error) {
@@ -235,7 +168,6 @@ const Messages = () => {
       if (error) throw error;
 
       setNewMessage("");
-      // Refresh messages and conversations
       fetchMessages(selectedConversation);
       fetchConversations();
     } catch (error) {
@@ -390,7 +322,6 @@ const Messages = () => {
                           <div className="flex items-end gap-2 max-w-[80%]">
                             {message.sender_id !== user.id && (
                               <Avatar className="h-8 w-8">
-                                <AvatarImage src={message.sender?.avatar_url} />
                                 <AvatarFallback>
                                   <User className="h-4 w-4" />
                                 </AvatarFallback>

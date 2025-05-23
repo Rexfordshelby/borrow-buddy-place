@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
@@ -9,6 +10,7 @@ import ListItem from "./pages/ListItem";
 import ItemDetails from "./pages/ItemDetails";
 import UserProfile from "./pages/UserProfile";
 import Messages from "./pages/Messages";
+import CategoryPage from "./pages/CategoryPage";
 import ErrorBoundary from "./components/ErrorBoundary";
 
 const App = () => {
@@ -35,6 +37,7 @@ const App = () => {
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/auth" element={<AuthPage />} />
+              <Route path="/category/:slug" element={<CategoryPage />} />
               <Route path="/dashboard/*" element={<Dashboard />} />
               <Route path="/list-item" element={<ListItem />} />
               <Route path="/item/:id" element={<ItemDetails />} />
