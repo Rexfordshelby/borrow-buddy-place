@@ -16,7 +16,7 @@ const Home = () => {
         <div className="container mx-auto px-4 py-8">
           <section className="mb-12">
             <h2 className="text-2xl font-bold mb-6">Browse Categories</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               <CategoryCard
                 title="Electronics"
                 icon={<Laptop className="h-8 w-8" />}
