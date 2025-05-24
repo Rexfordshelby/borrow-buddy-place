@@ -18,26 +18,63 @@ const Index = () => {
       setLoading(true);
       
       try {
-        // Fetch categories
+        // Fetch categories with item counts
         const { data: categoryData } = await supabase
           .from('categories')
           .select('*')
           .order('name');
         
-        setCategories(categoryData || []);
+        // Get item counts for each category
+        const categoriesWithCounts = await Promise.all(
+          (categoryData || []).map(async (category) => {
+            const { count } = await supabase
+              .from('items')
+              .select('*', { count: 'exact', head: true })
+              .eq('category_id', category.id)
+              .eq('is_available', true);
+            
+            return {
+              ...category,
+              itemCount: count || 0
+            };
+          })
+        );
         
-        // Fix the query to use the proper relationship
+        setCategories(categoriesWithCounts);
+        
+        // Fetch featured items with profiles and reviews
         const { data: itemsData } = await supabase
           .from('items')
           .select(`
             *,
-            categories:category_id(name, slug)
+            categories:category_id(name, slug),
+            profiles:user_id(username, full_name, avatar_url)
           `)
           .eq('is_available', true)
           .order('created_at', { ascending: false })
           .limit(8);
         
-        setFeaturedItems(itemsData || []);
+        // Calculate ratings for featured items
+        const itemsWithRatings = await Promise.all(
+          (itemsData || []).map(async (item) => {
+            const { data: reviews } = await supabase
+              .from('reviews')
+              .select('rating')
+              .eq('item_id', item.id);
+
+            const avgRating = reviews && reviews.length > 0
+              ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
+              : 4.5; // Default rating for items without reviews
+
+            return {
+              ...item,
+              rating: avgRating,
+              review_count: reviews?.length || 0
+            };
+          })
+        );
+        
+        setFeaturedItems(itemsWithRatings);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -46,6 +83,27 @@ const Index = () => {
     };
     
     fetchData();
+
+    // Set up real-time listener for new items
+    const channel = supabase
+      .channel('homepage-items')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'items'
+        },
+        () => {
+          // Refetch data when new items are added
+          fetchData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return (
@@ -65,7 +123,7 @@ const Index = () => {
                   title={category.name}
                   icon={category.icon}
                   slug={category.slug}
-                  itemCount={0} // Adding the missing itemCount prop
+                  itemCount={category.itemCount}
                 />
               ))}
             </div>
@@ -83,7 +141,7 @@ const Index = () => {
               <div className="flex justify-center">
                 <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent"></div>
               </div>
-            ) : (
+            ) : featuredItems.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 {featuredItems.map((item) => (
                   <ItemCard
@@ -94,13 +152,18 @@ const Index = () => {
                     priceUnit={item.price_unit}
                     imageUrl={item.image_url || "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=600&auto=format&fit=crop&q=80"}
                     location={item.location}
-                    rating={item.rating || 4.5}
-                    reviewCount={item.review_count || 0}
+                    rating={item.rating}
+                    reviewCount={item.review_count}
                     category={item.categories?.name}
                     isVerified={item.is_verified}
                     isService={item.is_service}
                   />
                 ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <h3 className="text-xl font-semibold mb-2">No items available yet</h3>
+                <p className="text-gray-600">Be the first to list an item for rent!</p>
               </div>
             )}
           </div>

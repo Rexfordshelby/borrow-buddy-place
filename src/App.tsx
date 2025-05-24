@@ -12,6 +12,8 @@ import UserProfile from "./pages/UserProfile";
 import Messages from "./pages/Messages";
 import CategoryPage from "./pages/CategoryPage";
 import ErrorBoundary from "./components/ErrorBoundary";
+import RealTimeNotifications from "./components/RealTimeNotifications";
+import { Toaster } from "./components/ui/toaster";
 
 const App = () => {
   const [loading, setLoading] = useState(true);
@@ -34,6 +36,7 @@ const App = () => {
       <AuthProvider>
         <ReactQueryProvider>
           <Router>
+            <RealTimeNotifications />
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/auth" element={<AuthPage />} />
@@ -45,6 +48,7 @@ const App = () => {
               <Route path="/messages" element={<Messages />} />
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
+            <Toaster />
           </Router>
         </ReactQueryProvider>
       </AuthProvider>

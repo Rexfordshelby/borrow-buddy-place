@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MapPin, Star, Search, Filter } from "lucide-react";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "@/hooks/use-toast";
 
 const CategoryPage = () => {
   const { slug } = useParams();
@@ -32,16 +33,59 @@ const CategoryPage = () => {
 
         if (categoryError) {
           console.error("Category error:", categoryError);
-          // Create mock category if not found
-          setCategory({ name: slug?.charAt(0).toUpperCase() + slug?.slice(1), slug });
-        } else {
-          setCategory(categoryData);
+          toast({
+            title: "Error",
+            description: "Category not found",
+            variant: "destructive",
+          });
+          return;
         }
 
-        // Fetch items - for now we'll show mock data since we don't have real items
-        // In the future this would filter by category_id
-        const mockItems = generateMockItems(slug || '');
-        setItems(mockItems);
+        setCategory(categoryData);
+
+        // Fetch real items with profiles and calculate ratings
+        const { data: itemsData, error: itemsError } = await supabase
+          .from("items")
+          .select(`
+            *,
+            categories:category_id(name, slug),
+            profiles:user_id(username, full_name, avatar_url, rating, review_count)
+          `)
+          .eq("category_id", categoryData.id)
+          .eq("is_available", true)
+          .order("created_at", { ascending: false });
+
+        if (itemsError) {
+          console.error("Items error:", itemsError);
+          toast({
+            title: "Error",
+            description: "Failed to load items",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Calculate average rating for each item
+        const itemsWithRatings = await Promise.all(
+          (itemsData || []).map(async (item) => {
+            const { data: reviews } = await supabase
+              .from("reviews")
+              .select("rating")
+              .eq("item_id", item.id);
+
+            const avgRating = reviews && reviews.length > 0
+              ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
+              : 0;
+
+            return {
+              ...item,
+              rating: avgRating.toFixed(1),
+              review_count: reviews?.length || 0
+            };
+          })
+        );
+
+        setItems(itemsWithRatings);
 
       } catch (error: any) {
         console.error("Error fetching data:", error);
@@ -60,71 +104,47 @@ const CategoryPage = () => {
     }
   }, [slug]);
 
-  const generateMockItems = (categorySlug: string) => {
-    const items = [];
-    const itemTemplates = {
-      electronics: [
-        { title: "MacBook Pro 16\"", price: 80, description: "Latest MacBook Pro for professional work", condition: "Excellent", isService: false },
-        { title: "Sony A7 III Camera", price: 120, description: "Professional mirrorless camera", condition: "Very Good", isService: false },
-        { title: "iPad Pro 12.9\"", price: 45, description: "Perfect for digital art and productivity", condition: "Good", isService: false },
-        { title: "Gaming Setup Complete", price: 150, description: "High-end gaming PC with monitors", condition: "Excellent", isService: false }
-      ],
-      tools: [
-        { title: "Professional Drill Set", price: 35, description: "Complete drill set with bits", condition: "Good", isService: false },
-        { title: "Circular Saw", price: 40, description: "Heavy-duty circular saw", condition: "Very Good", isService: false },
-        { title: "Tool Box Complete", price: 60, description: "Full set of professional tools", condition: "Excellent", isService: false },
-        { title: "Power Washer", price: 55, description: "High-pressure cleaning system", condition: "Good", isService: false }
-      ],
-      sports: [
-        { title: "Mountain Bike", price: 50, description: "High-quality mountain bike for trails", condition: "Very Good", isService: false },
-        { title: "Surfboard Set", price: 65, description: "Professional surfboard with accessories", condition: "Good", isService: false },
-        { title: "Tennis Racket Pro", price: 25, description: "Professional tennis racket", condition: "Excellent", isService: false },
-        { title: "Kayak Double", price: 80, description: "Two-person kayak with paddles", condition: "Very Good", isService: false }
-      ],
-      vehicles: [
-        { title: "Tesla Model 3", price: 200, description: "Electric luxury sedan", condition: "Excellent", isService: false },
-        { title: "BMW Motorcycle", price: 150, description: "Adventure touring motorcycle", condition: "Very Good", isService: false },
-        { title: "Camping Van", price: 300, description: "Fully equipped camping van", condition: "Good", isService: false },
-        { title: "Electric Scooter", price: 35, description: "Fast electric scooter", condition: "Excellent", isService: false }
-      ],
-      services: [
-        { title: "Photography Session", price: 200, description: "Professional photography service", condition: "N/A", isService: true },
-        { title: "Personal Training", price: 80, description: "1-on-1 fitness training", condition: "N/A", isService: true },
-        { title: "Home Cleaning", price: 120, description: "Deep home cleaning service", condition: "N/A", isService: true },
-        { title: "Guitar Lessons", price: 60, description: "Learn guitar with expert", condition: "N/A", isService: true }
-      ]
-    };
+  // Set up real-time listener for items
+  useEffect(() => {
+    if (!category?.id) return;
 
-    const templates = itemTemplates[categorySlug as keyof typeof itemTemplates] || itemTemplates.electronics;
-    
-    templates.forEach((template, index) => {
-      items.push({
-        id: `${categorySlug}-${index + 1}`,
-        title: template.title,
-        price: template.price,
-        price_unit: template.isService ? 'session' : 'day',
-        description: template.description,
-        condition: template.condition,
-        location: `San Francisco, CA`,
-        image_url: null,
-        is_service: template.isService,
-        is_verified: Math.random() > 0.5,
-        rating: (4 + Math.random()).toFixed(1),
-        owner: {
-          name: `User ${index + 1}`,
-          rating: (4 + Math.random()).toFixed(1),
-          avatar_url: null
+    const channel = supabase
+      .channel('category-items-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'items',
+          filter: `category_id=eq.${category.id}`
+        },
+        (payload) => {
+          console.log('Real-time update:', payload);
+          // Refetch data when items change
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE' || payload.eventType === 'DELETE') {
+            // Re-fetch items to get updated data
+            fetchCategoryAndItems();
+          }
         }
-      });
-    });
+      )
+      .subscribe();
 
-    return items;
-  };
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [category?.id]);
 
-  const filteredItems = items.filter(item =>
-    item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredItems = items.filter(item => {
+    const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.description.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesPrice = priceRange === "all" || 
+      (priceRange === "0-50" && item.price <= 50) ||
+      (priceRange === "50-100" && item.price > 50 && item.price <= 100) ||
+      (priceRange === "100+" && item.price > 100);
+
+    return matchesSearch && matchesPrice;
+  });
 
   const sortedItems = [...filteredItems].sort((a, b) => {
     switch (sortBy) {
@@ -134,8 +154,9 @@ const CategoryPage = () => {
         return b.price - a.price;
       case 'rating':
         return parseFloat(b.rating) - parseFloat(a.rating);
+      case 'newest':
       default:
-        return 0;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     }
   });
 
@@ -265,6 +286,10 @@ const CategoryPage = () => {
                           Condition: <span className="font-medium">{item.condition}</span>
                         </div>
                       )}
+
+                      <div className="text-sm text-gray-600">
+                        Owner: <span className="font-medium">{item.profiles?.full_name || item.profiles?.username || 'Unknown'}</span>
+                      </div>
 
                       <Link to={`/item/${item.id}`} className="block">
                         <Button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
