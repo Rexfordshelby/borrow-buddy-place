@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -65,28 +64,28 @@ const CategoryPage = () => {
     const items = [];
     const itemTemplates = {
       electronics: [
-        { title: "MacBook Pro 16\"", price: 80, description: "Latest MacBook Pro for professional work", condition: "Excellent" },
-        { title: "Sony A7 III Camera", price: 120, description: "Professional mirrorless camera", condition: "Very Good" },
-        { title: "iPad Pro 12.9\"", price: 45, description: "Perfect for digital art and productivity", condition: "Good" },
-        { title: "Gaming Setup Complete", price: 150, description: "High-end gaming PC with monitors", condition: "Excellent" }
+        { title: "MacBook Pro 16\"", price: 80, description: "Latest MacBook Pro for professional work", condition: "Excellent", isService: false },
+        { title: "Sony A7 III Camera", price: 120, description: "Professional mirrorless camera", condition: "Very Good", isService: false },
+        { title: "iPad Pro 12.9\"", price: 45, description: "Perfect for digital art and productivity", condition: "Good", isService: false },
+        { title: "Gaming Setup Complete", price: 150, description: "High-end gaming PC with monitors", condition: "Excellent", isService: false }
       ],
       tools: [
-        { title: "Professional Drill Set", price: 35, description: "Complete drill set with bits", condition: "Good" },
-        { title: "Circular Saw", price: 40, description: "Heavy-duty circular saw", condition: "Very Good" },
-        { title: "Tool Box Complete", price: 60, description: "Full set of professional tools", condition: "Excellent" },
-        { title: "Power Washer", price: 55, description: "High-pressure cleaning system", condition: "Good" }
+        { title: "Professional Drill Set", price: 35, description: "Complete drill set with bits", condition: "Good", isService: false },
+        { title: "Circular Saw", price: 40, description: "Heavy-duty circular saw", condition: "Very Good", isService: false },
+        { title: "Tool Box Complete", price: 60, description: "Full set of professional tools", condition: "Excellent", isService: false },
+        { title: "Power Washer", price: 55, description: "High-pressure cleaning system", condition: "Good", isService: false }
       ],
       sports: [
-        { title: "Mountain Bike", price: 50, description: "High-quality mountain bike for trails", condition: "Very Good" },
-        { title: "Surfboard Set", price: 65, description: "Professional surfboard with accessories", condition: "Good" },
-        { title: "Tennis Racket Pro", price: 25, description: "Professional tennis racket", condition: "Excellent" },
-        { title: "Kayak Double", price: 80, description: "Two-person kayak with paddles", condition: "Very Good" }
+        { title: "Mountain Bike", price: 50, description: "High-quality mountain bike for trails", condition: "Very Good", isService: false },
+        { title: "Surfboard Set", price: 65, description: "Professional surfboard with accessories", condition: "Good", isService: false },
+        { title: "Tennis Racket Pro", price: 25, description: "Professional tennis racket", condition: "Excellent", isService: false },
+        { title: "Kayak Double", price: 80, description: "Two-person kayak with paddles", condition: "Very Good", isService: false }
       ],
       vehicles: [
-        { title: "Tesla Model 3", price: 200, description: "Electric luxury sedan", condition: "Excellent" },
-        { title: "BMW Motorcycle", price: 150, description: "Adventure touring motorcycle", condition: "Very Good" },
-        { title: "Camping Van", price: 300, description: "Fully equipped camping van", condition: "Good" },
-        { title: "Electric Scooter", price: 35, description: "Fast electric scooter", condition: "Excellent" }
+        { title: "Tesla Model 3", price: 200, description: "Electric luxury sedan", condition: "Excellent", isService: false },
+        { title: "BMW Motorcycle", price: 150, description: "Adventure touring motorcycle", condition: "Very Good", isService: false },
+        { title: "Camping Van", price: 300, description: "Fully equipped camping van", condition: "Good", isService: false },
+        { title: "Electric Scooter", price: 35, description: "Fast electric scooter", condition: "Excellent", isService: false }
       ],
       services: [
         { title: "Photography Session", price: 200, description: "Professional photography service", condition: "N/A", isService: true },
@@ -108,7 +107,7 @@ const CategoryPage = () => {
         condition: template.condition,
         location: `San Francisco, CA`,
         image_url: null,
-        is_service: template.isService || false,
+        is_service: template.isService,
         is_verified: Math.random() > 0.5,
         rating: (4 + Math.random()).toFixed(1),
         owner: {
