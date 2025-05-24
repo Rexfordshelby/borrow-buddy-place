@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,84 +20,84 @@ const CategoryPage = () => {
   const [sortBy, setSortBy] = useState("newest");
   const [priceRange, setPriceRange] = useState("all");
 
-  useEffect(() => {
-    const fetchCategoryAndItems = async () => {
-      try {
-        // Fetch category info
-        const { data: categoryData, error: categoryError } = await supabase
-          .from("categories")
-          .select("*")
-          .eq("slug", slug)
-          .single();
+  const fetchCategoryAndItems = async () => {
+    try {
+      // Fetch category info
+      const { data: categoryData, error: categoryError } = await supabase
+        .from("categories")
+        .select("*")
+        .eq("slug", slug)
+        .single();
 
-        if (categoryError) {
-          console.error("Category error:", categoryError);
-          toast({
-            title: "Error",
-            description: "Category not found",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        setCategory(categoryData);
-
-        // Fetch real items with profiles and calculate ratings
-        const { data: itemsData, error: itemsError } = await supabase
-          .from("items")
-          .select(`
-            *,
-            categories:category_id(name, slug),
-            profiles:user_id(username, full_name, avatar_url, rating, review_count)
-          `)
-          .eq("category_id", categoryData.id)
-          .eq("is_available", true)
-          .order("created_at", { ascending: false });
-
-        if (itemsError) {
-          console.error("Items error:", itemsError);
-          toast({
-            title: "Error",
-            description: "Failed to load items",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        // Calculate average rating for each item
-        const itemsWithRatings = await Promise.all(
-          (itemsData || []).map(async (item) => {
-            const { data: reviews } = await supabase
-              .from("reviews")
-              .select("rating")
-              .eq("item_id", item.id);
-
-            const avgRating = reviews && reviews.length > 0
-              ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
-              : 0;
-
-            return {
-              ...item,
-              rating: avgRating.toFixed(1),
-              review_count: reviews?.length || 0
-            };
-          })
-        );
-
-        setItems(itemsWithRatings);
-
-      } catch (error: any) {
-        console.error("Error fetching data:", error);
+      if (categoryError) {
+        console.error("Category error:", categoryError);
         toast({
           title: "Error",
-          description: "Failed to load category items",
+          description: "Category not found",
           variant: "destructive",
         });
-      } finally {
-        setLoading(false);
+        return;
       }
-    };
 
+      setCategory(categoryData);
+
+      // Fetch real items with profiles and calculate ratings
+      const { data: itemsData, error: itemsError } = await supabase
+        .from("items")
+        .select(`
+          *,
+          categories:category_id(name, slug),
+          profiles:user_id(username, full_name, avatar_url, rating, review_count)
+        `)
+        .eq("category_id", categoryData.id)
+        .eq("is_available", true)
+        .order("created_at", { ascending: false });
+
+      if (itemsError) {
+        console.error("Items error:", itemsError);
+        toast({
+          title: "Error",
+          description: "Failed to load items",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Calculate average rating for each item
+      const itemsWithRatings = await Promise.all(
+        (itemsData || []).map(async (item) => {
+          const { data: reviews } = await supabase
+            .from("reviews")
+            .select("rating")
+            .eq("item_id", item.id);
+
+          const avgRating = reviews && reviews.length > 0
+            ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
+            : 0;
+
+          return {
+            ...item,
+            rating: avgRating.toFixed(1),
+            review_count: reviews?.length || 0
+          };
+        })
+      );
+
+      setItems(itemsWithRatings);
+
+    } catch (error: any) {
+      console.error("Error fetching data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load category items",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     if (slug) {
       fetchCategoryAndItems();
     }
@@ -122,7 +121,6 @@ const CategoryPage = () => {
           console.log('Real-time update:', payload);
           // Refetch data when items change
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE' || payload.eventType === 'DELETE') {
-            // Re-fetch items to get updated data
             fetchCategoryAndItems();
           }
         }
