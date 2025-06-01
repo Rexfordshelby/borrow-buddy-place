@@ -17,6 +17,8 @@ interface ListItemData {
   location: string;
   is_service?: boolean;
   image_url?: string;
+  currency_id?: string;
+  availability_calendar?: any[];
 }
 
 export const useListItem = () => {
@@ -80,7 +82,8 @@ export const useListItem = () => {
     try {
       logger.info("Starting item submission process", { 
         isService: data.is_service,
-        hasImage: !!image
+        hasImage: !!image,
+        currency_id: data.currency_id
       });
 
       // Validate user ID before using it
@@ -97,10 +100,23 @@ export const useListItem = () => {
         }
       }
 
+      // Get default currency if none specified
+      let currencyId = data.currency_id;
+      if (!currencyId) {
+        const { data: defaultCurrency } = await supabase
+          .from("currencies")
+          .select("id")
+          .eq("is_default", true)
+          .single();
+        
+        currencyId = defaultCurrency?.id;
+      }
+
       logger.debug("Preparing item data for submission", {
         ...data,
         user_id: user.id,
-        image_url: imageUrl ? "[IMAGE URL SET]" : "[NO IMAGE]" 
+        image_url: imageUrl ? "[IMAGE URL SET]" : "[NO IMAGE]",
+        currency_id: currencyId
       });
 
       // Submit the item data
@@ -110,6 +126,8 @@ export const useListItem = () => {
           ...data,
           user_id: user.id,
           image_url: imageUrl,
+          currency_id: currencyId,
+          availability_calendar: data.availability_calendar || [],
         })
         .select()
         .single();

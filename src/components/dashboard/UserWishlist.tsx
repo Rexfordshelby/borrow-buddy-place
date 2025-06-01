@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
-import { Heart } from "lucide-react";
+import { Heart, Star } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const UserWishlist = () => {
@@ -23,7 +23,11 @@ const UserWishlist = () => {
           .from('wishlists')
           .select(`
             *,
-            items(*)
+            items(
+              *,
+              currencies(code, symbol),
+              profiles:user_id(username, full_name, rating)
+            )
           `)
           .eq('user_id', user.id);
 
@@ -65,6 +69,10 @@ const UserWishlist = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const formatPrice = (price: number, currency: any) => {
+    return `${currency?.symbol || '$'}${price}`;
   };
 
   if (loading) {
@@ -121,9 +129,20 @@ const UserWishlist = () => {
             <h3 className="font-medium mb-2 cursor-pointer hover:underline" onClick={() => navigate(`/item/${wishlist.items.id}`)}>
               {wishlist.items?.title}
             </h3>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-2">
               <span className="font-semibold">
-                ${wishlist.items?.price}/{wishlist.items?.price_unit}
+                {formatPrice(wishlist.items?.price, wishlist.items?.currencies)}/{wishlist.items?.price_unit}
+              </span>
+              {wishlist.items?.profiles?.rating > 0 && (
+                <div className="flex items-center text-sm text-gray-500">
+                  <Star className="h-4 w-4 text-yellow-400 fill-yellow-400 mr-1" />
+                  {wishlist.items.profiles.rating}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-500">
+                by {wishlist.items?.profiles?.full_name || wishlist.items?.profiles?.username || 'Unknown'}
               </span>
               <Button 
                 variant="ghost" 

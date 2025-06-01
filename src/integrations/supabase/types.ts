@@ -86,13 +86,48 @@ export type Database = {
         }
         Relationships: []
       }
+      currencies: {
+        Row: {
+          code: string
+          created_at: string | null
+          exchange_rate: number
+          id: string
+          is_default: boolean | null
+          name: string
+          symbol: string
+          updated_at: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          exchange_rate?: number
+          id?: string
+          is_default?: boolean | null
+          name: string
+          symbol: string
+          updated_at?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          exchange_rate?: number
+          id?: string
+          is_default?: boolean | null
+          name?: string
+          symbol?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       items: {
         Row: {
+          availability_calendar: Json | null
           availability_schedule: string | null
           cancellation_policy: string | null
           category_id: string | null
           condition: string
           created_at: string
+          currency_id: string | null
           description: string
           id: string
           image_url: string | null
@@ -110,11 +145,13 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          availability_calendar?: Json | null
           availability_schedule?: string | null
           cancellation_policy?: string | null
           category_id?: string | null
           condition: string
           created_at?: string
+          currency_id?: string | null
           description: string
           id?: string
           image_url?: string | null
@@ -132,11 +169,13 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          availability_calendar?: Json | null
           availability_schedule?: string | null
           cancellation_policy?: string | null
           category_id?: string | null
           condition?: string
           created_at?: string
+          currency_id?: string | null
           description?: string
           id?: string
           image_url?: string | null
@@ -159,6 +198,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "items_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
             referencedColumns: ["id"]
           },
         ]
@@ -204,6 +250,47 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          created_at: string | null
+          data: Json | null
+          id: string
+          is_read: boolean | null
+          message: string
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          data?: Json | null
+          id?: string
+          is_read?: boolean | null
+          message: string
+          title: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          data?: Json | null
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -212,6 +299,10 @@ export type Database = {
           full_name: string | null
           id: string
           is_verified: boolean | null
+          latitude: number | null
+          location_city: string | null
+          location_country: string | null
+          longitude: number | null
           phone: string | null
           rating: number | null
           review_count: number | null
@@ -229,6 +320,10 @@ export type Database = {
           full_name?: string | null
           id: string
           is_verified?: boolean | null
+          latitude?: number | null
+          location_city?: string | null
+          location_country?: string | null
+          longitude?: number | null
           phone?: string | null
           rating?: number | null
           review_count?: number | null
@@ -246,6 +341,10 @@ export type Database = {
           full_name?: string | null
           id?: string
           is_verified?: boolean | null
+          latitude?: number | null
+          location_city?: string | null
+          location_country?: string | null
+          longitude?: number | null
           phone?: string | null
           rating?: number | null
           review_count?: number | null
@@ -305,6 +404,44 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saved_searches: {
+        Row: {
+          created_at: string | null
+          filters: Json | null
+          id: string
+          location: Json | null
+          name: string
+          search_query: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          filters?: Json | null
+          id?: string
+          location?: Json | null
+          name: string
+          search_query?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          filters?: Json | null
+          id?: string
+          location?: Json | null
+          name?: string
+          search_query?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_searches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -370,7 +507,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      calculate_user_rating: {
+        Args: { user_id: string }
+        Returns: number
+      }
     }
     Enums: {
       [_ in never]: never
