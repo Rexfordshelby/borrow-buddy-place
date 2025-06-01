@@ -5,16 +5,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Menu, X } from "lucide-react";
 import NavbarButtons from "./NavbarButtons";
+import LanguageSelector from "./LanguageSelector";
+import { useLanguage } from "@/context/LanguageContext";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
       navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchQuery("");
     }
   };
 
@@ -38,7 +42,7 @@ const Navbar = () => {
               </div>
               <Input
                 type="search"
-                placeholder="Search for items to rent..."
+                placeholder={t('search.placeholder')}
                 className="pl-10 w-full"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -48,11 +52,13 @@ const Navbar = () => {
 
           {/* Desktop navigation */}
           <nav className="hidden md:flex items-center space-x-4">
+            <LanguageSelector />
             <NavbarButtons />
           </nav>
 
           {/* Mobile menu button */}
-          <div className="md:hidden flex items-center">
+          <div className="md:hidden flex items-center space-x-2">
+            <LanguageSelector />
             <button
               onClick={() => setIsOpen(!isOpen)}
               className="p-2 rounded-md focus:outline-none"
@@ -76,7 +82,7 @@ const Navbar = () => {
                 </div>
                 <Input
                   type="search"
-                  placeholder="Search for items to rent..."
+                  placeholder={t('search.placeholder')}
                   className="pl-10 w-full"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -88,7 +94,7 @@ const Navbar = () => {
               className="block px-3 py-2 rounded-md text-base font-medium text-brand-600 hover:bg-gray-50"
               onClick={() => setIsOpen(false)}
             >
-              List Your Item
+              {t('nav.list')}
             </Link>
             <div className="pt-4 pb-3 border-t border-gray-200">
               <div className="flex items-center px-4">

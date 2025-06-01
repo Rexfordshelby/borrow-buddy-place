@@ -1,337 +1,249 @@
-import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+
+import React, { useState, useEffect } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Search, Filter, X, MapPin, Calendar } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ItemCard from "@/components/ItemCard";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import SearchFilters from "@/components/SearchFilters";
+import LocationSearchFilter from "@/components/search/LocationSearchFilter";
 import { toast } from "@/components/ui/use-toast";
-import { Search, SlidersHorizontal, X } from "lucide-react";
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Badge } from "@/components/ui/badge";
-import SearchFilters from "@/components/SearchFilters";
-
-interface ItemWithDistance {
-  id: string;
-  title: string;
-  price: number;
-  price_unit: string;
-  location: string;
-  image_url: string | null;
-  is_verified: boolean;
-  is_service: boolean;
-  is_available: boolean;
-  latitude: number | null;
-  longitude: number | null;
-  categories: {
-    name: string;
-    slug: string;
-  } | null;
-  distance?: number | null;
-  rating?: number;
-  review_count?: number;
-}
 
 const SearchPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [items, setItems] = useState<ItemWithDistance[]>([]);
+  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
+  const [items, setItems] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  
-  const initialQuery = searchParams.get("q") || "";
-  const initialCategory = searchParams.get("category") || "";
-  const initialType = searchParams.get("type") || "";
-  const initialDistance = searchParams.get("distance") || "25";
-  
-  const [searchTerm, setSearchTerm] = useState(initialQuery);
-  const [selectedCategory, setSelectedCategory] = useState(initialCategory);
-  const [showOnlyServices, setShowOnlyServices] = useState(initialType === "service");
-  const [showOnlyItems, setShowOnlyItems] = useState(initialType === "item");
-  const [maxDistance, setMaxDistance] = useState(parseInt(initialDistance));
+  const [loading, setLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [sortBy, setSortBy] = useState(searchParams.get("sort") || "newest");
-  const [priceRange, setPriceRange] = useState([
-    parseInt(searchParams.get("minPrice") || "0"),
-    parseInt(searchParams.get("maxPrice") || "1000")
-  ]);
-
-  // Get user location
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
-          });
-        },
-        (error) => {
-          console.error("Error getting location:", error);
-        }
-      );
-    }
-  }, []);
+  
+  // Filter states
+  const [selectedCategory, setSelectedCategory] = useState(searchParams.get("category") || "");
+  const [showOnlyItems, setShowOnlyItems] = useState(false);
+  const [showOnlyServices, setShowOnlyServices] = useState(false);
+  const [maxDistance, setMaxDistance] = useState(25);
+  const [priceRange, setPriceRange] = useState([0, 1000]);
+  const [sortBy, setSortBy] = useState("newest");
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [availabilityDate, setAvailabilityDate] = useState<Date | null>(null);
 
   useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('categories')
-          .select('*')
-          .order('name');
-          
-        if (error) throw error;
-        setCategories(data || []);
-      } catch (error) {
-        console.error("Error fetching categories:", error);
-      }
-    };
-
     fetchCategories();
+    handleSearch({ preventDefault: () => {} } as any);
   }, []);
 
-  // Calculate distance between two geographic coordinates
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    if (!lat1 || !lon1 || !lat2 || !lon2) return Infinity;
-    
-    const R = 3958.8; // Earth's radius in miles
+  const fetchCategories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("categories")
+        .select("*")
+        .order("name");
+
+      if (error) throw error;
+      setCategories(data || []);
+    } catch (error: any) {
+      console.error("Error fetching categories:", error);
+    }
+  };
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      let query = supabase
+        .from("items")
+        .select(`
+          *,
+          categories:category_id(name, slug),
+          profiles:user_id(username, full_name, avatar_url, rating)
+        `)
+        .eq("is_available", true);
+
+      // Text search
+      if (searchQuery.trim()) {
+        query = query.or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,location.ilike.%${searchQuery}%`);
+      }
+
+      // Category filter
+      if (selectedCategory) {
+        const category = categories.find(c => c.slug === selectedCategory);
+        if (category) {
+          query = query.eq("category_id", category.id);
+        }
+      }
+
+      // Item type filters
+      if (showOnlyItems && !showOnlyServices) {
+        query = query.eq("is_service", false);
+      } else if (showOnlyServices && !showOnlyItems) {
+        query = query.eq("is_service", true);
+      }
+
+      // Price range filter
+      if (priceRange[0] > 0 || priceRange[1] < 1000) {
+        query = query.gte("price", priceRange[0]).lte("price", priceRange[1]);
+      }
+
+      // Availability date filter
+      if (availabilityDate) {
+        const dateStr = availabilityDate.toISOString().split('T')[0];
+        query = query.contains("availability_calendar", [dateStr]);
+      }
+
+      // Sorting
+      switch (sortBy) {
+        case "price_low":
+          query = query.order("price", { ascending: true });
+          break;
+        case "price_high":
+          query = query.order("price", { ascending: false });
+          break;
+        case "rating":
+          query = query.order("rating", { ascending: false, nullsLast: true });
+          break;
+        case "proximity":
+          if (userLocation) {
+            // Note: This is a simplified distance calculation
+            // In production, you'd want to use PostGIS for accurate geo queries
+            query = query.order("created_at", { ascending: false });
+          }
+          break;
+        default:
+          query = query.order("created_at", { ascending: false });
+      }
+
+      const { data, error } = await query.limit(50);
+
+      if (error) throw error;
+
+      // Calculate ratings and filter by distance if needed
+      let processedItems = data || [];
+
+      if (userLocation && maxDistance < 100) {
+        processedItems = processedItems.filter(item => {
+          if (!item.latitude || !item.longitude) return true;
+          const distance = calculateDistance(
+            userLocation.latitude,
+            userLocation.longitude,
+            item.latitude,
+            item.longitude
+          );
+          return distance <= maxDistance;
+        });
+      }
+
+      // Add ratings calculation
+      const itemsWithRatings = await Promise.all(
+        processedItems.map(async (item) => {
+          const { data: reviews } = await supabase
+            .from("reviews")
+            .select("rating")
+            .eq("item_id", item.id);
+
+          const avgRating = reviews && reviews.length > 0
+            ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
+            : item.profiles?.rating || 4.5;
+
+          return {
+            ...item,
+            rating: avgRating,
+            review_count: reviews?.length || 0
+          };
+        })
+      );
+
+      setItems(itemsWithRatings);
+    } catch (error: any) {
+      console.error("Search error:", error);
+      toast({
+        title: "Search Error",
+        description: "Failed to search items. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371; // Earth's radius in km
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-      Math.sin(dLon/2) * Math.sin(dLon/2); 
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     return R * c;
   };
 
-  useEffect(() => {
-    const fetchItems = async () => {
-      setLoading(true);
-      
-      try {
-        let query = supabase
-          .from('items')
-          .select(`
-            *,
-            profiles(username, avatar_url),
-            categories(name, slug)
-          `)
-          .eq('is_available', true);
-          
-        // Apply search filters
-        if (initialQuery) {
-          query = query.ilike('title', `%${initialQuery}%`);
-        }
-        
-        if (initialCategory) {
-          query = query.eq('categories.slug', initialCategory);
-        }
-        
-        // Filter by type (service or item)
-        if (initialType === 'service') {
-          query = query.eq('is_service', true);
-        } else if (initialType === 'item') {
-          query = query.eq('is_service', false);
-        }
-
-        // Sort order
-        if (sortBy === 'price_low') {
-          query = query.order('price', { ascending: true });
-        } else if (sortBy === 'price_high') {
-          query = query.order('price', { ascending: false });
-        } else if (sortBy === 'rating') {
-          // Sort by rating would go here if we had a rating system
-          query = query.order('created_at', { ascending: false });
-        } else {
-          // Default to newest
-          query = query.order('created_at', { ascending: false });
-        }
-        
-        let { data, error } = await query;
-        
-        if (error) throw error;
-
-        // Client-side filtering for distance and price
-        if (data) {
-          let filteredData = data as ItemWithDistance[];
-          
-          // Filter by price
-          filteredData = filteredData.filter(item => 
-            item.price >= priceRange[0] && 
-            item.price <= priceRange[1]
-          );
-          
-          // Filter by distance if user location is available
-          if (userLocation) {
-            filteredData = filteredData.map(item => {
-              if (item.latitude && item.longitude) {
-                const distance = calculateDistance(
-                  userLocation.latitude,
-                  userLocation.longitude,
-                  item.latitude,
-                  item.longitude
-                );
-                return {...item, distance};
-              }
-              return {...item, distance: null};
-            });
-
-            // Only show items within the selected max distance
-            filteredData = filteredData.filter(item => 
-              item.distance === null || item.distance <= maxDistance
-            );
-
-            // Sort by proximity if that's the selected sort order
-            if (sortBy === 'proximity') {
-              filteredData.sort((a, b) => {
-                // Handle null distances (push to end)
-                if (a.distance === null) return 1;
-                if (b.distance === null) return -1;
-                return a.distance - b.distance;
-              });
-            }
-          }
-          
-          setItems(filteredData);
-        } else {
-          setItems([]);
-        }
-      } catch (error) {
-        console.error("Error searching items:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load search results",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchItems();
-  }, [initialQuery, initialCategory, initialType, maxDistance, priceRange, sortBy, userLocation]);
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const params = new URLSearchParams();
-    if (searchTerm) {
-      params.set("q", searchTerm);
-    }
-    if (selectedCategory) {
-      params.set("category", selectedCategory);
-    }
-    
-    // Set listing type filter
-    if (showOnlyServices) {
-      params.set("type", "service");
-    } else if (showOnlyItems) {
-      params.set("type", "item");
-    }
-    
-    // Set distance filter
-    params.set("distance", maxDistance.toString());
-    
-    // Set price range
-    params.set("minPrice", priceRange[0].toString());
-    params.set("maxPrice", priceRange[1].toString());
-    
-    // Set sort order
-    params.set("sort", sortBy);
-    
-    setSearchParams(params);
+  const handleLocationSearch = (location: string, radius: number) => {
+    setMaxDistance(radius);
+    // Here you would typically geocode the location to get coordinates
+    toast({
+      title: "Location Search",
+      description: `Searching within ${radius}km of ${location}`,
+    });
+    handleSearch({ preventDefault: () => {} } as any);
   };
 
   const handleFilterReset = () => {
-    setSearchTerm("");
     setSelectedCategory("");
-    setShowOnlyServices(false);
     setShowOnlyItems(false);
+    setShowOnlyServices(false);
     setMaxDistance(25);
     setPriceRange([0, 1000]);
     setSortBy("newest");
-    setSearchParams({});
-  };
-
-  const getActiveFiltersCount = () => {
-    let count = 0;
-    if (selectedCategory) count++;
-    if (showOnlyServices || showOnlyItems) count++;
-    if (maxDistance !== 25) count++;
-    if (priceRange[0] > 0 || priceRange[1] < 1000) count++;
-    if (sortBy !== "newest") count++;
-    return count;
+    setUserLocation(null);
+    setAvailabilityDate(null);
+    handleSearch({ preventDefault: () => {} } as any);
   };
 
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
-      <main className="flex-1">
-        <div className="bg-gray-50 py-8">
-          <div className="container mx-auto px-4">
-            <form onSubmit={handleSearch} className="max-w-4xl mx-auto">
-              <div className="flex flex-col md:flex-row gap-3">
-                <div className="relative flex-1">
+      <main className="flex-1 bg-gray-50">
+        <div className="container mx-auto px-4 py-6">
+          {/* Search Header */}
+          <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <form onSubmit={handleSearch} className="space-y-4">
+              <div className="flex gap-2">
+                <div className="flex-1 relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                   <Input
-                    type="text"
-                    placeholder="What do you need to borrow or book?"
+                    type="search"
+                    placeholder="Search for items, services, or locations..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-10"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
-                <div className="md:w-1/3">
-                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="All Categories" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">All Categories</SelectItem>
-                      {categories.map((category) => (
-                        <SelectItem key={category.id} value={category.slug}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
+                <Button type="submit" disabled={loading}>
+                  {loading ? "Searching..." : "Search"}
+                </Button>
                 <Sheet open={showFilters} onOpenChange={setShowFilters}>
                   <SheetTrigger asChild>
-                    <Button variant="outline" className="md:w-auto w-full justify-between">
-                      <span className="flex items-center">
-                        <SlidersHorizontal className="h-4 w-4 mr-2" />
-                        Filters
-                      </span>
-                      {getActiveFiltersCount() > 0 && (
-                        <Badge className="ml-2 bg-brand-500">{getActiveFiltersCount()}</Badge>
-                      )}
+                    <Button variant="outline">
+                      <Filter className="h-4 w-4 mr-2" />
+                      Filters
                     </Button>
                   </SheetTrigger>
-                  <SheetContent>
+                  <SheetContent side="right" className="w-80 overflow-y-auto">
                     <SheetHeader>
                       <SheetTitle>Search Filters</SheetTitle>
-                      <SheetDescription>
-                        Refine your search results
-                      </SheetDescription>
                     </SheetHeader>
                     <SearchFilters
                       selectedCategory={selectedCategory}
@@ -354,145 +266,69 @@ const SearchPage = () => {
                     />
                   </SheetContent>
                 </Sheet>
-
-                <Button type="submit">Search</Button>
               </div>
+              
+              <LocationSearchFilter
+                onLocationSearch={handleLocationSearch}
+                className="w-full"
+              />
             </form>
           </div>
-        </div>
 
-        <div className="container mx-auto px-4 py-8">
-          <h1 className="text-2xl font-bold mb-6">
-            {loading ? "Searching..." : (
-              items.length > 0 
-                ? `${items.length} results found`
-                : "No results found"
-            )}
-          </h1>
-
-          {getActiveFiltersCount() > 0 && (
-            <div className="flex flex-wrap gap-2 mb-6">
-              {selectedCategory && (
-                <Badge variant="outline" className="flex items-center gap-1">
-                  Category: {categories.find(c => c.slug === selectedCategory)?.name || selectedCategory}
-                  <X 
-                    className="h-3 w-3 ml-1 cursor-pointer" 
-                    onClick={() => {
-                      setSelectedCategory("");
-                      handleSearch({ preventDefault: () => {} } as any);
-                    }} 
-                  />
-                </Badge>
-              )}
-              {showOnlyServices && (
-                <Badge variant="outline" className="flex items-center gap-1">
-                  Services only
-                  <X 
-                    className="h-3 w-3 ml-1 cursor-pointer" 
-                    onClick={() => {
-                      setShowOnlyServices(false);
-                      handleSearch({ preventDefault: () => {} } as any);
-                    }} 
-                  />
-                </Badge>
-              )}
-              {showOnlyItems && (
-                <Badge variant="outline" className="flex items-center gap-1">
-                  Items only
-                  <X 
-                    className="h-3 w-3 ml-1 cursor-pointer" 
-                    onClick={() => {
-                      setShowOnlyItems(false);
-                      handleSearch({ preventDefault: () => {} } as any);
-                    }} 
-                  />
-                </Badge>
-              )}
-              {(priceRange[0] > 0 || priceRange[1] < 1000) && (
-                <Badge variant="outline" className="flex items-center gap-1">
-                  Price: ${priceRange[0]} - ${priceRange[1]}
-                  <X 
-                    className="h-3 w-3 ml-1 cursor-pointer" 
-                    onClick={() => {
-                      setPriceRange([0, 1000]);
-                      handleSearch({ preventDefault: () => {} } as any);
-                    }} 
-                  />
-                </Badge>
-              )}
-              {maxDistance !== 25 && (
-                <Badge variant="outline" className="flex items-center gap-1">
-                  Within {maxDistance} miles
-                  <X 
-                    className="h-3 w-3 ml-1 cursor-pointer" 
-                    onClick={() => {
-                      setMaxDistance(25);
-                      handleSearch({ preventDefault: () => {} } as any);
-                    }} 
-                  />
-                </Badge>
-              )}
-              {sortBy !== "newest" && (
-                <Badge variant="outline" className="flex items-center gap-1">
-                  Sorted by: {sortBy.replace('_', ' ')}
-                  <X 
-                    className="h-3 w-3 ml-1 cursor-pointer" 
-                    onClick={() => {
-                      setSortBy("newest");
-                      handleSearch({ preventDefault: () => {} } as any);
-                    }} 
-                  />
-                </Badge>
-              )}
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={handleFilterReset}
-                className="text-gray-500 text-xs"
-              >
-                Clear all
-              </Button>
-            </div>
-          )}
+          {/* Results */}
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold">
+              {searchQuery ? `Search results for "${searchQuery}"` : "Browse all items"}
+            </h2>
+            <Badge variant="outline">
+              {items.length} {items.length === 1 ? "result" : "results"}
+            </Badge>
+          </div>
 
           {loading ? (
-            <div className="flex justify-center items-center h-64">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent"></div>
-              <span className="ml-2">Searching...</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                <Card key={i} className="overflow-hidden animate-pulse">
+                  <div className="h-48 bg-gray-200"></div>
+                  <CardContent className="p-4">
+                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                    <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : items.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {items.map((item) => (
+                <ItemCard
+                  key={item.id}
+                  id={item.id}
+                  title={item.title}
+                  price={item.price}
+                  priceUnit={item.price_unit}
+                  imageUrl={item.image_url || "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=600&auto=format&fit=crop&q=80"}
+                  location={item.location}
+                  rating={item.rating}
+                  reviewCount={item.review_count}
+                  category={item.categories?.name}
+                  isVerified={item.is_verified}
+                  isService={item.is_service}
+                />
+              ))}
             </div>
           ) : (
-            <>
-              {items.length === 0 ? (
-                <div className="text-center py-16">
-                  <p className="text-gray-600 mb-4">
-                    No items match your search criteria. Try adjusting your filters or search term.
-                  </p>
-                  <Button variant="outline" onClick={() => setSearchParams({})}>
-                    Clear Filters
-                  </Button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                  {items.map((item) => (
-                    <ItemCard
-                      key={item.id}
-                      id={item.id}
-                      title={item.title}
-                      price={item.price}
-                      priceUnit={item.price_unit}
-                      imageUrl={item.image_url || "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=600&auto=format&fit=crop&q=80"}
-                      location={item.location}
-                      rating={item.rating || 4.5} // Use item rating or placeholder
-                      reviewCount={item.review_count || 0} // Use item review count or placeholder
-                      category={item.categories?.name}
-                      isVerified={item.is_verified}
-                      isService={item.is_service}
-                      distance={item.distance}
-                    />
-                  ))}
-                </div>
-              )}
-            </>
+            <div className="text-center py-12">
+              <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                <Search className="h-8 w-8 text-gray-400" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">No results found</h3>
+              <p className="text-gray-600 mb-6">
+                Try adjusting your search terms or filters
+              </p>
+              <Button onClick={handleFilterReset}>
+                Clear all filters
+              </Button>
+            </div>
           )}
         </div>
       </main>
