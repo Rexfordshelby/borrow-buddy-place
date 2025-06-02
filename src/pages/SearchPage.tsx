@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -66,11 +65,7 @@ const SearchPage = () => {
     try {
       let query = supabase
         .from("items")
-        .select(`
-          *,
-          categories:category_id(name, slug),
-          profiles:user_id(username, full_name, avatar_url, rating)
-        `)
+        .select("*")
         .eq("is_available", true);
 
       // Text search
@@ -130,7 +125,7 @@ const SearchPage = () => {
 
       if (error) throw error;
 
-      // Calculate ratings and filter by distance if needed
+      // Process items to add profiles and ratings
       let processedItems = data || [];
 
       if (userLocation && maxDistance < 100) {
@@ -146,9 +141,17 @@ const SearchPage = () => {
         });
       }
 
-      // Add ratings calculation
-      const itemsWithRatings = await Promise.all(
+      // Add profiles and ratings
+      const itemsWithData = await Promise.all(
         processedItems.map(async (item) => {
+          // Fetch user profile
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("username, full_name, avatar_url, rating")
+            .eq("id", item.user_id)
+            .single();
+
+          // Fetch reviews
           const { data: reviews } = await supabase
             .from("reviews")
             .select("rating")
@@ -156,8 +159,8 @@ const SearchPage = () => {
 
           // Handle potential profile data issues
           let userRating = 4.5; // Default rating
-          if (item.profiles && typeof item.profiles === 'object' && 'rating' in item.profiles) {
-            userRating = item.profiles.rating || 4.5;
+          if (profile?.rating) {
+            userRating = profile.rating;
           }
 
           const avgRating = reviews && reviews.length > 0
@@ -166,13 +169,14 @@ const SearchPage = () => {
 
           return {
             ...item,
+            profiles: profile,
             rating: avgRating,
             review_count: reviews?.length || 0
           };
         })
       );
 
-      setItems(itemsWithRatings);
+      setItems(itemsWithData);
     } catch (error: any) {
       console.error("Search error:", error);
       toast({
@@ -316,7 +320,7 @@ const SearchPage = () => {
                   location={item.location}
                   rating={item.rating}
                   reviewCount={item.review_count}
-                  category={item.categories?.name}
+                  category={item.categories?.name || "Uncategorized"}
                   isVerified={item.is_verified}
                   isService={item.is_service}
                 />

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,23 +78,38 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ recipientId, bookingId, onClose
 
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      // Fetch messages first
+      const { data: messagesData, error: messagesError } = await supabase
         .from("messages")
-        .select(`
-          *,
-          sender:sender_id(id, username, full_name, avatar_url)
-        `)
+        .select("*")
         .or(`and(sender_id.eq.${user.id},receiver_id.eq.${recipientId}),and(sender_id.eq.${recipientId},receiver_id.eq.${user.id})`)
         .order("created_at", { ascending: true });
 
-      if (error) throw error;
+      if (messagesError) throw messagesError;
 
-      // Handle potential query errors by filtering valid messages
-      const validMessages = (data || []).filter(msg => 
-        msg.sender && typeof msg.sender === 'object' && 'id' in msg.sender
-      ) as Message[];
+      // Fetch sender profiles for each message
+      const messagesWithSenders = await Promise.all(
+        (messagesData || []).map(async (message) => {
+          const { data: senderProfile } = await supabase
+            .from("profiles")
+            .select("id, username, full_name, avatar_url")
+            .eq("id", message.sender_id)
+            .single();
 
-      setMessages(validMessages);
+          return {
+            ...message,
+            sender: senderProfile || {
+              id: message.sender_id,
+              username: "Unknown",
+              full_name: "Unknown User",
+              avatar_url: ""
+            }
+          };
+        })
+      );
+
+      setMessages(messagesWithSenders);
 
       // Mark messages as read
       await markMessagesAsRead();

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,14 +42,10 @@ const CategoryPage = () => {
 
       setCategory(categoryData);
 
-      // Fetch real items with profiles and calculate ratings
+      // Fetch items for this category
       const { data: itemsData, error: itemsError } = await supabase
         .from("items")
-        .select(`
-          *,
-          categories:category_id(name, slug),
-          profiles:user_id(username, full_name, avatar_url, rating, review_count)
-        `)
+        .select("*")
         .eq("category_id", categoryData.id)
         .eq("is_available", true)
         .order("created_at", { ascending: false });
@@ -63,9 +60,17 @@ const CategoryPage = () => {
         return;
       }
 
-      // Calculate average rating for each item
-      const itemsWithRatings = await Promise.all(
+      // Fetch user profiles separately for each item
+      const itemsWithProfiles = await Promise.all(
         (itemsData || []).map(async (item) => {
+          // Fetch user profile
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("username, full_name, avatar_url, rating, review_count")
+            .eq("id", item.user_id)
+            .single();
+
+          // Fetch reviews for the item
           const { data: reviews } = await supabase
             .from("reviews")
             .select("rating")
@@ -77,13 +82,14 @@ const CategoryPage = () => {
 
           return {
             ...item,
+            profiles: profile,
             rating: avgRating.toFixed(1),
             review_count: reviews?.length || 0
           };
         })
       );
 
-      setItems(itemsWithRatings);
+      setItems(itemsWithProfiles);
 
     } catch (error: any) {
       console.error("Error fetching data:", error);
@@ -286,7 +292,9 @@ const CategoryPage = () => {
                       )}
 
                       <div className="text-sm text-gray-600">
-                        Owner: <span className="font-medium">{item.profiles?.full_name || item.profiles?.username || 'Unknown'}</span>
+                        Owner: <span className="font-medium">
+                          {item.profiles?.full_name || item.profiles?.username || 'Unknown'}
+                        </span>
                       </div>
 
                       <Link to={`/item/${item.id}`} className="block">
