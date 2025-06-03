@@ -143,6 +143,7 @@ export type Database = {
           title: string
           updated_at: string
           user_id: string | null
+          view_count: number | null
         }
         Insert: {
           availability_calendar?: Json | null
@@ -167,6 +168,7 @@ export type Database = {
           title: string
           updated_at?: string
           user_id?: string | null
+          view_count?: number | null
         }
         Update: {
           availability_calendar?: Json | null
@@ -191,6 +193,7 @@ export type Database = {
           title?: string
           updated_at?: string
           user_id?: string | null
+          view_count?: number | null
         }
         Relationships: [
           {

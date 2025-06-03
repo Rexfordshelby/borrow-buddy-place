@@ -42,10 +42,13 @@ const CategoryPage = () => {
 
       setCategory(categoryData);
 
-      // Fetch items for this category
+      // Fetch items for this category with proper filtering for available items
       const { data: itemsData, error: itemsError } = await supabase
         .from("items")
-        .select("*")
+        .select(`
+          *,
+          profiles:user_id(username, full_name, avatar_url, rating, review_count)
+        `)
         .eq("category_id", categoryData.id)
         .eq("is_available", true)
         .order("created_at", { ascending: false });
@@ -60,17 +63,9 @@ const CategoryPage = () => {
         return;
       }
 
-      // Fetch user profiles separately for each item
-      const itemsWithProfiles = await Promise.all(
+      // Calculate ratings for each item
+      const itemsWithRatings = await Promise.all(
         (itemsData || []).map(async (item) => {
-          // Fetch user profile
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("username, full_name, avatar_url, rating, review_count")
-            .eq("id", item.user_id)
-            .single();
-
-          // Fetch reviews for the item
           const { data: reviews } = await supabase
             .from("reviews")
             .select("rating")
@@ -78,18 +73,17 @@ const CategoryPage = () => {
 
           const avgRating = reviews && reviews.length > 0
             ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
-            : 0;
+            : 4.5; // Default rating for items without reviews
 
           return {
             ...item,
-            profiles: profile,
             rating: avgRating.toFixed(1),
             review_count: reviews?.length || 0
           };
         })
       );
 
-      setItems(itemsWithProfiles);
+      setItems(itemsWithRatings);
 
     } catch (error: any) {
       console.error("Error fetching data:", error);
@@ -259,6 +253,9 @@ const CategoryPage = () => {
                           Verified
                         </Badge>
                       )}
+                      <Badge className="absolute top-2 left-2 bg-blue-500 hover:bg-blue-600">
+                        Available
+                      </Badge>
                     </div>
                   </CardHeader>
                   <CardContent className="p-6">
@@ -314,7 +311,10 @@ const CategoryPage = () => {
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-2">No items found</h3>
               <p className="text-gray-600 mb-8">Try adjusting your search terms or filters</p>
-              <Button onClick={() => setSearchTerm("")}>Clear Search</Button>
+              <Button onClick={() => {
+                setSearchTerm("");
+                setPriceRange("all");
+              }}>Clear Filters</Button>
             </div>
           )}
         </div>

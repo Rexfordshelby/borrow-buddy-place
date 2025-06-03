@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Calendar } from "@/components/ui/calendar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Calendar as CalendarIcon, Star, MapPin, Heart, Share, Shield, User, MessageCircle, UserCheck } from "lucide-react";
+import { Calendar as CalendarIcon, Star, MapPin, Heart, Share, Shield, User, MessageCircle, UserCheck, ArrowLeft } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { DateRange } from "react-day-picker";
 import ReviewsList from "@/components/ReviewsList";
@@ -32,6 +32,7 @@ const ItemDetail = () => {
   const [userReview, setUserReview] = useState<any>(null);
   const [userCanReview, setUserCanReview] = useState(false);
   const [userCompletedBooking, setUserCompletedBooking] = useState<string | null>(null);
+  const [bookingLoading, setBookingLoading] = useState(false);
 
   useEffect(() => {
     const fetchItem = async () => {
@@ -43,9 +44,13 @@ const ItemDetail = () => {
             categories:category_id(name)
           `)
           .eq('id', id)
+          .eq('is_available', true)
           .single();
 
-        if (itemError) throw itemError;
+        if (itemError) {
+          console.error("Item fetch error:", itemError);
+          throw itemError;
+        }
 
         setItem(itemData);
 
@@ -57,8 +62,19 @@ const ItemDetail = () => {
             .eq('id', itemData.user_id)
             .single();
 
-          if (ownerError) throw ownerError;
-          setOwner(ownerData);
+          if (ownerError) {
+            console.error("Owner fetch error:", ownerError);
+          } else {
+            setOwner(ownerData);
+          }
+        }
+
+        // Increment view count
+        if (itemData.id) {
+          await supabase
+            .from('items')
+            .update({ view_count: (itemData.view_count || 0) + 1 })
+            .eq('id', itemData.id);
         }
 
         // Check if logged-in user can review
@@ -95,7 +111,7 @@ const ItemDetail = () => {
         console.error("Error fetching item:", error);
         toast({
           title: "Error",
-          description: "Failed to load item details",
+          description: "Item not found or no longer available",
           variant: "destructive",
         });
       } finally {
@@ -130,6 +146,15 @@ const ItemDetail = () => {
       return;
     }
 
+    if (!item?.is_available) {
+      toast({
+        title: "Item not available",
+        description: "This item is currently unavailable for booking",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!selectedDates.from || !selectedDates.to) {
       toast({
         title: "Please select dates",
@@ -139,6 +164,16 @@ const ItemDetail = () => {
       return;
     }
 
+    if (user.id === item.user_id) {
+      toast({
+        title: "Cannot book own item",
+        description: "You cannot book your own item",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setBookingLoading(true);
     try {
       const { data, error } = await supabase
         .from('bookings')
@@ -151,23 +186,30 @@ const ItemDetail = () => {
           total_price: totalPrice,
           status: 'pending',
         })
-        .select();
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Booking error:", error);
+        throw error;
+      }
 
       toast({
-        title: "Booking requested",
-        description: "The owner will review your booking request soon",
+        title: "Booking requested successfully!",
+        description: "The owner will review your booking request soon. You'll receive a notification once they respond.",
       });
 
       // Navigate to dashboard
       navigate("/dashboard/bookings");
     } catch (error: any) {
+      console.error("Booking failed:", error);
       toast({
         title: "Booking failed",
-        description: error.message || "An unexpected error occurred",
+        description: error.message || "An unexpected error occurred. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setBookingLoading(false);
     }
   };
 
@@ -200,8 +242,10 @@ const ItemDetail = () => {
       setUserReview(reviewData);
       setUserCanReview(false);
       
-      // Refresh the page to show the new review
-      window.location.reload();
+      toast({
+        title: "Review submitted",
+        description: "Thank you for your feedback!",
+      });
     } catch (error) {
       console.error("Error submitting review:", error);
       throw error;
@@ -270,8 +314,11 @@ const ItemDetail = () => {
         <main className="flex-1 container mx-auto px-4 py-8">
           <div className="text-center py-16">
             <h2 className="text-2xl font-bold mb-2">Item Not Found</h2>
-            <p className="text-gray-600 mb-8">The item you're looking for doesn't exist or has been removed.</p>
-            <Button onClick={() => navigate("/")}>Return to Home</Button>
+            <p className="text-gray-600 mb-8">The item you're looking for doesn't exist or is no longer available.</p>
+            <Button onClick={() => navigate(-1)}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Go Back
+            </Button>
           </div>
         </main>
         <Footer />
@@ -284,6 +331,15 @@ const ItemDetail = () => {
       <Navbar />
       <main className="flex-1">
         <div className="container mx-auto px-4 py-8">
+          <Button 
+            variant="ghost" 
+            onClick={() => navigate(-1)}
+            className="mb-6"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to results
+          </Button>
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2">
               <div className="mb-6">
@@ -304,6 +360,10 @@ const ItemDetail = () => {
                       </Badge>
                     </>
                   )}
+                  <span>•</span>
+                  <Badge className="bg-blue-500 hover:bg-blue-600">
+                    Available
+                  </Badge>
                 </div>
               </div>
 
@@ -324,7 +384,7 @@ const ItemDetail = () => {
               <Tabs defaultValue="description" className="mb-8">
                 <TabsList>
                   <TabsTrigger value="description">Description</TabsTrigger>
-                  <TabsTrigger value="condition">Condition</TabsTrigger>
+                  <TabsTrigger value="condition">Details</TabsTrigger>
                   <TabsTrigger value="reviews">Reviews</TabsTrigger>
                 </TabsList>
                 <TabsContent value="description">
@@ -333,8 +393,31 @@ const ItemDetail = () => {
                   </div>
                 </TabsContent>
                 <TabsContent value="condition">
-                  <div className="bg-white p-6 rounded-lg border">
-                    <p>{item.condition}</p>
+                  <div className="bg-white p-6 rounded-lg border space-y-4">
+                    {!item.is_service && (
+                      <div>
+                        <span className="font-medium">Condition:</span>
+                        <span className="ml-2 text-gray-700">{item.condition}</span>
+                      </div>
+                    )}
+                    {item.availability_schedule && (
+                      <div>
+                        <span className="font-medium">Availability:</span>
+                        <span className="ml-2 text-gray-700">{item.availability_schedule}</span>
+                      </div>
+                    )}
+                    {item.cancellation_policy && (
+                      <div>
+                        <span className="font-medium">Cancellation Policy:</span>
+                        <span className="ml-2 text-gray-700">{item.cancellation_policy}</span>
+                      </div>
+                    )}
+                    {item.security_deposit > 0 && (
+                      <div>
+                        <span className="font-medium">Security Deposit:</span>
+                        <span className="ml-2 text-gray-700">${item.security_deposit}</span>
+                      </div>
+                    )}
                   </div>
                 </TabsContent>
                 <TabsContent value="reviews">
@@ -384,8 +467,8 @@ const ItemDetail = () => {
                   </div>
                   <div className="flex items-center">
                     <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
-                    <span className="ml-1 font-medium">4.9</span>
-                    <span className="ml-1 text-gray-500">(18)</span>
+                    <span className="ml-1 font-medium">4.8</span>
+                    <span className="ml-1 text-gray-500">(12)</span>
                   </div>
                 </div>
 
@@ -423,8 +506,15 @@ const ItemDetail = () => {
                   </div>
                 )}
 
-                <Button className="w-full" onClick={handleBooking}>
-                  Book Now
+                <Button 
+                  className="w-full" 
+                  onClick={handleBooking}
+                  disabled={bookingLoading || !item?.is_available}
+                >
+                  {bookingLoading ? (
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
+                  ) : null}
+                  {bookingLoading ? "Processing..." : "Book Now"}
                 </Button>
 
                 {owner && (
@@ -467,11 +557,7 @@ const ItemDetail = () => {
                             navigate("/auth");
                             return;
                           }
-                          // Navigate to messages component (will be implemented)
-                          toast({
-                            title: "Coming Soon",
-                            description: "Messaging functionality will be available soon",
-                          });
+                          navigate("/messages");
                         }}>
                           <MessageCircle className="h-4 w-4 mr-1" />
                           Message

@@ -42,7 +42,7 @@ const Index = () => {
         
         setCategories(categoriesWithCounts);
         
-        // Fetch featured items with profiles and reviews
+        // Fetch featured items with profiles and reviews - only available items
         const { data: itemsData } = await supabase
           .from('items')
           .select(`
