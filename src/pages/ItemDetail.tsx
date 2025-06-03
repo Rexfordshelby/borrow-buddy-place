@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -15,11 +14,37 @@ import { toast } from "@/hooks/use-toast";
 import ReviewsList from "@/components/ReviewsList";
 import ReviewForm from "@/components/ReviewForm";
 
+// Define the item type with categories
+interface ItemWithCategory {
+  id: string;
+  title: string;
+  description: string;
+  price: number;
+  price_unit: string;
+  condition: string;
+  location: string;
+  image_url?: string;
+  is_available: boolean;
+  is_verified: boolean;
+  is_service: boolean;
+  user_id: string;
+  category_id?: string;
+  security_deposit?: number;
+  availability_schedule?: string;
+  cancellation_policy?: string;
+  view_count?: number;
+  created_at: string;
+  updated_at: string;
+  categories?: {
+    name: string;
+  };
+}
+
 const ItemDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [item, setItem] = useState<any>(null);
+  const [item, setItem] = useState<ItemWithCategory | null>(null);
   const [owner, setOwner] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [userReview, setUserReview] = useState<any>(null);
@@ -55,6 +80,11 @@ const ItemDetail = () => {
         console.log('Item fetched:', itemData);
         console.log('Item availability:', itemData.is_available);
 
+        // Create the item object with proper typing
+        const itemWithCategory: ItemWithCategory = {
+          ...itemData
+        };
+
         // Fetch category information separately
         if (itemData.category_id) {
           const { data: categoryData } = await supabase
@@ -64,11 +94,11 @@ const ItemDetail = () => {
             .single();
 
           if (categoryData) {
-            itemData.categories = categoryData;
+            itemWithCategory.categories = categoryData;
           }
         }
 
-        setItem(itemData);
+        setItem(itemWithCategory);
 
         // Fetch owner profile separately
         if (itemData.user_id) {
@@ -146,7 +176,7 @@ const ItemDetail = () => {
         .insert({
           item_id: id,
           reviewer_id: user.id,
-          reviewee_id: item.user_id,
+          reviewee_id: item!.user_id,
           booking_id: userCompletedBooking,
           rating,
           comment,
@@ -296,7 +326,7 @@ const ItemDetail = () => {
                         <span className="ml-2 text-gray-700">{item.cancellation_policy}</span>
                       </div>
                     )}
-                    {item.security_deposit > 0 && (
+                    {item.security_deposit && item.security_deposit > 0 && (
                       <div>
                         <span className="font-medium">Security Deposit:</span>
                         <span className="ml-2 text-gray-700">${item.security_deposit}</span>
