@@ -8,7 +8,7 @@ import Home from "./pages/Home";
 import AuthPage from "./pages/AuthPage";
 import Dashboard from "./pages/Dashboard";
 import ListItem from "./pages/ListItem";
-import ItemDetails from "./pages/ItemDetails";
+import ItemDetail from "./pages/ItemDetail";
 import UserProfile from "./pages/UserProfile";
 import Messages from "./pages/Messages";
 import CategoryPage from "./pages/CategoryPage";
@@ -51,7 +51,7 @@ const App = () => {
                 <Route path="/dashboard/*" element={<Dashboard />} />
                 <Route path="/list-item" element={<ListItem />} />
                 <Route path="/list-item/:id" element={<ListItem />} />
-                <Route path="/item/:id" element={<ItemDetails />} />
+                <Route path="/item/:id" element={<ItemDetail />} />
                 <Route path="/user/:id" element={<UserProfile />} />
                 <Route path="/messages" element={<Messages />} />
                 <Route path="*" element={<Navigate to="/" />} />

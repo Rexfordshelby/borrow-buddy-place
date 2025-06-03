@@ -120,15 +120,20 @@ const ItemDetailCard: React.FC<ItemDetailCardProps> = ({ item, owner }) => {
   }, [dateRange, timeSlot, item]);
 
   const handleRentNow = async () => {
+    console.log('Booking attempt started for item:', item?.id);
+    
     if (!item) {
       console.error('No item data available');
+      toast({
+        title: "Error",
+        description: "Item data not available",
+        variant: "destructive",
+      });
       return;
     }
 
-    console.log('Attempting to book item:', item.id);
-    console.log('Item availability status:', item.is_available);
-    
     if (!user) {
+      console.log('User not authenticated, redirecting to auth');
       toast({
         title: "Authentication required",
         description: "Please sign in to book this " + (item.is_service ? "service" : "item"),
@@ -179,14 +184,18 @@ const ItemDetailCard: React.FC<ItemDetailCardProps> = ({ item, owner }) => {
     setIsSubmitting(true);
 
     try {
-      // For items that might be mock data, skip the database verification
-      if (item.id.startsWith('mock') || item.user_id.startsWith('mock')) {
-        // Simulate booking for mock data
-        console.log('Simulating booking for mock item');
+      console.log('Processing booking for item:', item.id);
+      
+      // Handle mock items or demo items
+      if (item.id.includes('mock') || item.user_id.includes('mock') || !item.user_id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+        console.log('Demo item detected, creating demo booking');
+        
+        // Simulate a successful booking for demo purposes
+        await new Promise(resolve => setTimeout(resolve, 1000));
         
         toast({
-          title: "Demo booking created",
-          description: "This is a demo booking for a sample item",
+          title: "Demo booking created!",
+          description: "This is a demonstration booking. In a real scenario, the owner would be notified.",
         });
 
         // Redirect to dashboard
@@ -194,10 +203,13 @@ const ItemDetailCard: React.FC<ItemDetailCardProps> = ({ item, owner }) => {
         return;
       }
 
-      // Double-check item availability before booking (only for real items)
+      // For real items, proceed with database booking
+      console.log('Creating real booking in database');
+      
+      // Double-check item availability
       const { data: currentItem, error: checkError } = await supabase
         .from("items")
-        .select("is_available")
+        .select("is_available, user_id")
         .eq("id", item.id)
         .maybeSingle();
 
@@ -213,7 +225,7 @@ const ItemDetailCard: React.FC<ItemDetailCardProps> = ({ item, owner }) => {
         return;
       }
 
-      // Create booking for real items
+      // Create booking
       const bookingData = {
         item_id: item.id,
         renter_id: user.id,
@@ -240,9 +252,9 @@ const ItemDetailCard: React.FC<ItemDetailCardProps> = ({ item, owner }) => {
       console.log('Booking created successfully:', data);
 
       toast({
-        title: "Request submitted",
+        title: "Request submitted!",
         description: item.is_service 
-          ? "Your service booking request has been sent" 
+          ? "Your service booking request has been sent to the provider" 
           : "Your rental request has been sent to the owner",
       });
 
@@ -252,8 +264,8 @@ const ItemDetailCard: React.FC<ItemDetailCardProps> = ({ item, owner }) => {
     } catch (error: any) {
       console.error("Booking error:", error);
       toast({
-        title: "Error",
-        description: error.message || "Failed to submit booking request",
+        title: "Booking failed",
+        description: error.message || "There was an error processing your booking request. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -399,9 +411,13 @@ const ItemDetailCard: React.FC<ItemDetailCardProps> = ({ item, owner }) => {
           </div>
 
           {/* Availability indicator */}
-          {!item.is_available && (
+          {!item.is_available ? (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
               <p className="text-red-800 font-medium">This item is currently not available for booking.</p>
+            </div>
+          ) : (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <p className="text-green-800 font-medium">✅ Available for booking!</p>
             </div>
           )}
 
@@ -482,11 +498,12 @@ const ItemDetailCard: React.FC<ItemDetailCardProps> = ({ item, owner }) => {
                       <SelectValue placeholder="Select duration" />
                     </SelectTrigger>
                     <SelectContent>
-                      {getTimeSlotOptions().map(option => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="1 hour">1 hour</SelectItem>
+                      <SelectItem value="2 hours">2 hours</SelectItem>
+                      <SelectItem value="3 hours">3 hours</SelectItem>
+                      <SelectItem value="4 hours">4 hours</SelectItem>
+                      <SelectItem value="half day (6 hours)">Half day (6 hours)</SelectItem>
+                      <SelectItem value="full day (12 hours)">Full day (12 hours)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -546,7 +563,7 @@ const ItemDetailCard: React.FC<ItemDetailCardProps> = ({ item, owner }) => {
             {isSubmitting ? (
               <div className="flex items-center">
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2"></div>
-                Submitting...
+                Processing...
               </div>
             ) : (
               item.is_service ? "Book Service" : "Request Rental"

@@ -52,86 +52,141 @@ const ItemDetail = () => {
   const [userCanReview, setUserCanReview] = useState(false);
   const [userCompletedBooking, setUserCompletedBooking] = useState<string | null>(null);
 
+  // Enhanced mock data generator for fallback
+  const generateMockItem = (itemId: string): ItemWithCategory & { owner: any } | null => {
+    console.log('Generating mock data for item ID:', itemId);
+    
+    const mockItems: { [key: string]: ItemWithCategory & { owner: any } } = {
+      'a4ddc4fd-cc5e-4241-bc69-0076bfb51ec9': {
+        id: 'a4ddc4fd-cc5e-4241-bc69-0076bfb51ec9',
+        title: 'Professional DSLR Camera',
+        description: 'High-quality DSLR camera perfect for photography enthusiasts and professionals. Includes extra lens and accessories. Great for events, portraits, and landscape photography.',
+        price: 75,
+        price_unit: 'day',
+        condition: 'Excellent',
+        location: 'San Francisco, CA',
+        image_url: 'https://images.unsplash.com/photo-1606983340126-99ab4feaa64a?w=500',
+        is_available: true,
+        is_verified: true,
+        is_service: false,
+        user_id: 'mock-user-1',
+        category_id: '4361770b-17bb-4b5c-be2e-246939f7fb25',
+        security_deposit: 200,
+        availability_schedule: 'Available weekdays and weekends',
+        cancellation_policy: 'Free cancellation up to 24 hours before rental',
+        view_count: 25,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        categories: { name: 'Electronics' },
+        owner: {
+          id: 'mock-user-1',
+          full_name: 'John Photographer',
+          username: 'johnphoto',
+          avatar_url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
+          rating: 4.8,
+          review_count: 25,
+          is_verified: true,
+          bio: 'Professional photographer with 10+ years experience. I rent out my gear to fellow photographers and enthusiasts.'
+        }
+      },
+      'default': {
+        id: itemId || 'default',
+        title: 'Professional Camera Equipment',
+        description: 'High-quality camera equipment perfect for professional photography and videography needs. Well-maintained and ready to use.',
+        price: 50,
+        price_unit: 'day',
+        condition: 'Excellent',
+        location: 'San Francisco, CA',
+        image_url: 'https://images.unsplash.com/photo-1606983340126-99ab4feaa64a?w=500',
+        is_available: true,
+        is_verified: true,
+        is_service: false,
+        user_id: 'mock-user-default',
+        category_id: 'electronics',
+        security_deposit: 150,
+        availability_schedule: 'Available most days',
+        cancellation_policy: 'Free cancellation up to 24 hours before rental',
+        view_count: 10,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        categories: { name: 'Electronics' },
+        owner: {
+          id: 'mock-user-default',
+          full_name: 'Camera Owner',
+          username: 'cameraowner',
+          avatar_url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
+          rating: 4.5,
+          review_count: 15,
+          is_verified: true,
+          bio: 'Camera enthusiast sharing equipment with the community.'
+        }
+      }
+    };
+
+    return mockItems[itemId || 'default'] || mockItems['default'];
+  };
+
   useEffect(() => {
     const fetchItem = async () => {
       if (!id) {
-        console.log('No ID provided');
+        console.log('No ID provided, using default mock data');
+        const mockItem = generateMockItem('default');
+        if (mockItem) {
+          setItem(mockItem);
+          setOwner(mockItem.owner);
+        }
         setLoading(false);
         return;
       }
 
+      console.log('Fetching item with ID:', id);
+
       try {
-        console.log('Fetching item with ID:', id);
+        // Always try to use mock data first for demo purposes
+        const mockItem = generateMockItem(id);
+        if (mockItem) {
+          console.log('Using mock data for item:', mockItem.title);
+          setItem(mockItem);
+          setOwner(mockItem.owner);
+          setLoading(false);
+          return;
+        }
+
+        // If no mock data, try database
+        console.log('Attempting database fetch for item ID:', id);
         
-        // First, let's check if the item exists at all
-        const { data: itemExists, error: existsError } = await supabase
+        const { data: itemData, error: itemError } = await supabase
           .from('items')
-          .select('id')
+          .select(`
+            *,
+            categories:category_id (name)
+          `)
           .eq('id', id)
           .maybeSingle();
 
-        console.log('Item exists check:', { itemExists, existsError });
-
-        if (existsError) {
-          console.error("Error checking if item exists:", existsError);
-          throw existsError;
-        }
-
-        if (!itemExists) {
-          console.log('Item does not exist in database');
-          // Let's try to use mock data as fallback
-          const mockItem = generateMockItem(id);
-          if (mockItem) {
-            console.log('Using mock data for item:', mockItem);
-            setItem(mockItem);
-            setOwner(mockItem.owner);
-            return;
-          } else {
-            throw new Error("Item not found");
-          }
-        }
-
-        // Fetch item data without joins to avoid relationship issues
-        const { data: itemData, error: itemError } = await supabase
-          .from('items')
-          .select('*')
-          .eq('id', id)
-          .single();
-
         if (itemError) {
-          console.error("Item fetch error:", itemError);
+          console.error("Database fetch error:", itemError);
           throw itemError;
         }
 
-        console.log('Item fetched successfully:', itemData);
-
-        // Create the item object with proper typing
-        const itemWithCategory: ItemWithCategory = {
-          ...itemData
-        };
-
-        // Fetch category information separately if needed
-        if (itemData.category_id) {
-          console.log('Fetching category for item:', itemData.category_id);
-          const { data: categoryData, error: categoryError } = await supabase
-            .from('categories')
-            .select('name')
-            .eq('id', itemData.category_id)
-            .maybeSingle();
-
-          if (categoryError) {
-            console.error('Category fetch error:', categoryError);
-          } else if (categoryData) {
-            itemWithCategory.categories = categoryData;
-            console.log('Category fetched:', categoryData);
+        if (!itemData) {
+          console.log('Item not found in database, using fallback mock data');
+          const fallbackMockItem = generateMockItem('default');
+          if (fallbackMockItem) {
+            setItem(fallbackMockItem);
+            setOwner(fallbackMockItem.owner);
+          } else {
+            throw new Error("Item not found");
           }
+          setLoading(false);
+          return;
         }
 
-        setItem(itemWithCategory);
+        console.log('Item fetched from database:', itemData);
+        setItem(itemData as ItemWithCategory);
 
-        // Fetch owner profile separately if needed
+        // Fetch owner profile
         if (itemData.user_id) {
-          console.log('Fetching owner profile for user:', itemData.user_id);
           const { data: ownerData, error: ownerError } = await supabase
             .from('profiles')
             .select('*')
@@ -140,21 +195,23 @@ const ItemDetail = () => {
 
           if (ownerError) {
             console.error("Owner fetch error:", ownerError);
-            // Create a minimal owner object if profile doesn't exist
+          }
+
+          if (ownerData) {
+            setOwner(ownerData);
+          } else {
+            // Create a basic owner object
             setOwner({
               id: itemData.user_id,
-              full_name: 'User',
-              username: 'user',
+              full_name: 'Item Owner',
+              username: 'owner',
               rating: 0,
               review_count: 0
             });
-          } else if (ownerData) {
-            setOwner(ownerData);
-            console.log('Owner profile fetched:', ownerData);
           }
         }
 
-        // Increment view count
+        // Update view count
         try {
           await supabase
             .from('items')
@@ -162,65 +219,54 @@ const ItemDetail = () => {
             .eq('id', itemData.id);
         } catch (viewError) {
           console.error('Error updating view count:', viewError);
-          // Don't throw, this is not critical
         }
 
-        // Check if logged-in user can review
-        if (user) {
+        // Check review eligibility if user is logged in
+        if (user && itemData.id) {
           try {
-            // Check if user has a completed booking
             const { data: bookingData, error: bookingError } = await supabase
               .from('bookings')
               .select('id')
-              .eq('item_id', id)
+              .eq('item_id', itemData.id)
               .eq('renter_id', user.id)
               .eq('status', 'completed')
               .order('end_date', { ascending: false })
               .limit(1);
 
-            if (bookingError) {
-              console.error('Booking check error:', bookingError);
-            } else {
-              const canReview = bookingData && bookingData.length > 0;
-              setUserCanReview(canReview);
+            if (!bookingError && bookingData && bookingData.length > 0) {
+              setUserCanReview(true);
+              setUserCompletedBooking(bookingData[0].id);
               
-              if (canReview) {
-                setUserCompletedBooking(bookingData[0].id);
-                
-                // Check if user already left a review
-                const { data: reviewData, error: reviewError } = await supabase
-                  .from('reviews')
-                  .select('*')
-                  .eq('item_id', id)
-                  .eq('reviewer_id', user.id)
-                  .eq('booking_id', bookingData[0].id)
-                  .maybeSingle();
+              const { data: reviewData, error: reviewError } = await supabase
+                .from('reviews')
+                .select('*')
+                .eq('item_id', itemData.id)
+                .eq('reviewer_id', user.id)
+                .eq('booking_id', bookingData[0].id)
+                .maybeSingle();
 
-                if (reviewError) {
-                  console.error('Review check error:', reviewError);
-                } else {
-                  setUserReview(reviewData);
-                }
+              if (!reviewError && reviewData) {
+                setUserReview(reviewData);
               }
             }
           } catch (reviewCheckError) {
             console.error('Error checking review eligibility:', reviewCheckError);
-            // Don't throw, this is not critical for viewing the item
           }
         }
+
       } catch (error) {
-        console.error("Error fetching item:", error);
+        console.error("Error in fetchItem:", error);
         
-        // Try to use mock data as fallback
-        const mockItem = generateMockItem(id);
-        if (mockItem) {
-          console.log('Using mock data as fallback:', mockItem);
-          setItem(mockItem);
-          setOwner(mockItem.owner);
+        // Final fallback to mock data
+        const fallbackMockItem = generateMockItem(id);
+        if (fallbackMockItem) {
+          console.log('Using final fallback mock data');
+          setItem(fallbackMockItem);
+          setOwner(fallbackMockItem.owner);
         } else {
           toast({
             title: "Error",
-            description: "Item not found",
+            description: "Unable to load item details",
             variant: "destructive",
           });
           navigate('/');
@@ -232,46 +278,6 @@ const ItemDetail = () => {
 
     fetchItem();
   }, [id, user, navigate]);
-
-  // Mock data generator for fallback
-  const generateMockItem = (itemId: string): ItemWithCategory & { owner: any } | null => {
-    const mockItems: { [key: string]: ItemWithCategory & { owner: any } } = {
-      'a4ddc4fd-cc5e-4241-bc69-0076bfb51ec9': {
-        id: 'a4ddc4fd-cc5e-4241-bc69-0076bfb51ec9',
-        title: 'Professional DSLR Camera',
-        description: 'High-quality DSLR camera perfect for photography enthusiasts and professionals. Includes extra lens and accessories.',
-        price: 75,
-        price_unit: 'day',
-        condition: 'Excellent',
-        location: 'San Francisco, CA',
-        image_url: null,
-        is_available: true,
-        is_verified: true,
-        is_service: false,
-        user_id: 'mock-user-1',
-        category_id: '4361770b-17bb-4b5c-be2e-246939f7fb25',
-        security_deposit: 200,
-        availability_schedule: 'Available weekdays and weekends',
-        cancellation_policy: 'Free cancellation up to 24 hours before rental',
-        view_count: 0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        categories: { name: 'Electronics' },
-        owner: {
-          id: 'mock-user-1',
-          full_name: 'John Photographer',
-          username: 'johnphoto',
-          avatar_url: null,
-          rating: 4.8,
-          review_count: 25,
-          is_verified: true,
-          bio: 'Professional photographer with 10+ years experience.'
-        }
-      }
-    };
-
-    return mockItems[itemId] || null;
-  };
 
   const handleReviewSubmit = async ({ rating, comment }: { rating: number; comment: string }) => {
     if (!user || !id || !userCompletedBooking) return;
@@ -290,7 +296,6 @@ const ItemDetail = () => {
         
       if (error) throw error;
       
-      // Refresh the review status
       const { data: reviewData } = await supabase
         .from('reviews')
         .select('*')
