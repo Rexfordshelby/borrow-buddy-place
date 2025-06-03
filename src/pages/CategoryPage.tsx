@@ -23,6 +23,8 @@ const CategoryPage = () => {
 
   const fetchCategoryAndItems = async () => {
     try {
+      console.log('Fetching category for slug:', slug);
+      
       // Fetch category info
       const { data: categoryData, error: categoryError } = await supabase
         .from("categories")
@@ -40,14 +42,15 @@ const CategoryPage = () => {
         return;
       }
 
+      console.log('Category found:', categoryData);
       setCategory(categoryData);
 
-      // Fetch items for this category with proper filtering for available items
+      // Fetch items for this category with proper join to profiles
       const { data: itemsData, error: itemsError } = await supabase
         .from("items")
         .select(`
           *,
-          profiles:user_id(username, full_name, avatar_url, rating, review_count)
+          profiles!inner(username, full_name, avatar_url, rating, review_count)
         `)
         .eq("category_id", categoryData.id)
         .eq("is_available", true)
@@ -55,35 +58,45 @@ const CategoryPage = () => {
 
       if (itemsError) {
         console.error("Items error:", itemsError);
-        toast({
-          title: "Error",
-          description: "Failed to load items",
-          variant: "destructive",
-        });
-        return;
+        // Try alternative query without profiles join if the first one fails
+        const { data: itemsDataAlt, error: itemsErrorAlt } = await supabase
+          .from("items")
+          .select("*")
+          .eq("category_id", categoryData.id)
+          .eq("is_available", true)
+          .order("created_at", { ascending: false });
+
+        if (itemsErrorAlt) {
+          console.error("Alternative items query also failed:", itemsErrorAlt);
+          toast({
+            title: "Error",
+            description: "Failed to load items",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Fetch profiles separately for items
+        const itemsWithProfiles = await Promise.all(
+          (itemsDataAlt || []).map(async (item) => {
+            const { data: profileData } = await supabase
+              .from("profiles")
+              .select("username, full_name, avatar_url, rating, review_count")
+              .eq("id", item.user_id)
+              .single();
+
+            return {
+              ...item,
+              profiles: profileData
+            };
+          })
+        );
+
+        setItems(itemsWithProfiles);
+      } else {
+        console.log('Items fetched successfully:', itemsData);
+        setItems(itemsData || []);
       }
-
-      // Calculate ratings for each item
-      const itemsWithRatings = await Promise.all(
-        (itemsData || []).map(async (item) => {
-          const { data: reviews } = await supabase
-            .from("reviews")
-            .select("rating")
-            .eq("item_id", item.id);
-
-          const avgRating = reviews && reviews.length > 0
-            ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
-            : 4.5; // Default rating for items without reviews
-
-          return {
-            ...item,
-            rating: avgRating.toFixed(1),
-            review_count: reviews?.length || 0
-          };
-        })
-      );
-
-      setItems(itemsWithRatings);
 
     } catch (error: any) {
       console.error("Error fetching data:", error);
@@ -151,7 +164,7 @@ const CategoryPage = () => {
       case 'price-high':
         return b.price - a.price;
       case 'rating':
-        return parseFloat(b.rating) - parseFloat(a.rating);
+        return (b.profiles?.rating || 0) - (a.profiles?.rating || 0);
       case 'newest':
       default:
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
@@ -253,7 +266,7 @@ const CategoryPage = () => {
                           Verified
                         </Badge>
                       )}
-                      <Badge className="absolute top-2 left-2 bg-blue-500 hover:bg-blue-600">
+                      <Badge className="absolute top-2 left-2 bg-green-500 hover:bg-green-600">
                         Available
                       </Badge>
                     </div>
@@ -273,7 +286,7 @@ const CategoryPage = () => {
                         </div>
                         <div className="flex items-center text-sm text-gray-500">
                           <Star className="h-4 w-4 text-yellow-400 fill-yellow-400 mr-1" />
-                          {item.rating}
+                          {item.profiles?.rating || '4.5'}
                         </div>
                       </div>
 

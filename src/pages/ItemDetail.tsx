@@ -5,17 +5,15 @@ import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { Button } from "@/components/ui/button";
+import ItemDetailCard from "@/components/ItemDetailCard";
 import { Separator } from "@/components/ui/separator";
-import { Calendar } from "@/components/ui/calendar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Calendar as CalendarIcon, Star, MapPin, Heart, Share, Shield, User, MessageCircle, UserCheck, ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, Star, MapPin, UserCheck, Share, Heart } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
-import { DateRange } from "react-day-picker";
 import ReviewsList from "@/components/ReviewsList";
 import ReviewForm from "@/components/ReviewForm";
-import VerifiedBadge from "@/components/VerifiedBadge";
 
 const ItemDetail = () => {
   const { id } = useParams();
@@ -24,19 +22,21 @@ const ItemDetail = () => {
   const [item, setItem] = useState<any>(null);
   const [owner, setOwner] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedDates, setSelectedDates] = useState<DateRange>({
-    from: undefined,
-    to: undefined,
-  });
-  const [totalPrice, setTotalPrice] = useState(0);
   const [userReview, setUserReview] = useState<any>(null);
   const [userCanReview, setUserCanReview] = useState(false);
   const [userCompletedBooking, setUserCompletedBooking] = useState<string | null>(null);
-  const [bookingLoading, setBookingLoading] = useState(false);
 
   useEffect(() => {
     const fetchItem = async () => {
+      if (!id) {
+        setLoading(false);
+        return;
+      }
+
       try {
+        console.log('Fetching item with ID:', id);
+        
+        // Fetch item with category information
         const { data: itemData, error: itemError } = await supabase
           .from('items')
           .select(`
@@ -44,7 +44,6 @@ const ItemDetail = () => {
             categories:category_id(name)
           `)
           .eq('id', id)
-          .eq('is_available', true)
           .single();
 
         if (itemError) {
@@ -52,9 +51,13 @@ const ItemDetail = () => {
           throw itemError;
         }
 
+        console.log('Item fetched:', itemData);
+        console.log('Item availability:', itemData.is_available);
+
+        // Check if item is available - don't filter here, show the item but indicate availability
         setItem(itemData);
 
-        // Fetch owner profile
+        // Fetch owner profile separately to avoid join issues
         if (itemData.user_id) {
           const { data: ownerData, error: ownerError } = await supabase
             .from('profiles')
@@ -111,107 +114,17 @@ const ItemDetail = () => {
         console.error("Error fetching item:", error);
         toast({
           title: "Error",
-          description: "Item not found or no longer available",
+          description: "Item not found",
           variant: "destructive",
         });
+        navigate('/');
       } finally {
         setLoading(false);
       }
     };
 
-    if (id) {
-      fetchItem();
-    }
-  }, [id, user]);
-
-  useEffect(() => {
-    // Calculate price based on selected dates
-    if (item && selectedDates.from && selectedDates.to) {
-      const diffTime = Math.abs(selectedDates.to.getTime() - selectedDates.from.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      const price = diffDays * item.price;
-      setTotalPrice(price);
-    } else {
-      setTotalPrice(0);
-    }
-  }, [selectedDates, item]);
-
-  const handleBooking = async () => {
-    if (!user) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to book this item",
-      });
-      navigate("/auth");
-      return;
-    }
-
-    if (!item?.is_available) {
-      toast({
-        title: "Item not available",
-        description: "This item is currently unavailable for booking",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!selectedDates.from || !selectedDates.to) {
-      toast({
-        title: "Please select dates",
-        description: "You need to select start and end dates for your booking",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (user.id === item.user_id) {
-      toast({
-        title: "Cannot book own item",
-        description: "You cannot book your own item",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setBookingLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('bookings')
-        .insert({
-          item_id: id,
-          renter_id: user.id,
-          owner_id: item.user_id,
-          start_date: selectedDates.from.toISOString(),
-          end_date: selectedDates.to.toISOString(),
-          total_price: totalPrice,
-          status: 'pending',
-        })
-        .select()
-        .single();
-
-      if (error) {
-        console.error("Booking error:", error);
-        throw error;
-      }
-
-      toast({
-        title: "Booking requested successfully!",
-        description: "The owner will review your booking request soon. You'll receive a notification once they respond.",
-      });
-
-      // Navigate to dashboard
-      navigate("/dashboard/bookings");
-    } catch (error: any) {
-      console.error("Booking failed:", error);
-      toast({
-        title: "Booking failed",
-        description: error.message || "An unexpected error occurred. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setBookingLoading(false);
-    }
-  };
+    fetchItem();
+  }, [id, user, navigate]);
 
   const handleReviewSubmit = async ({ rating, comment }: { rating: number; comment: string }) => {
     if (!user || !id || !userCompletedBooking) return;
@@ -252,46 +165,6 @@ const ItemDetail = () => {
     }
   };
 
-  const addToWishlist = async () => {
-    if (!user) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to add items to your wishlist",
-      });
-      navigate("/auth");
-      return;
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from('wishlists')
-        .insert({
-          user_id: user.id,
-          item_id: id,
-        });
-
-      if (error) throw error;
-
-      toast({
-        title: "Added to wishlist",
-        description: "This item has been added to your wishlist",
-      });
-    } catch (error: any) {
-      if (error.code === '23505') {
-        toast({
-          title: "Already in wishlist",
-          description: "This item is already in your wishlist",
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: error.message || "An unexpected error occurred",
-          variant: "destructive",
-        });
-      }
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex flex-col min-h-screen">
@@ -314,7 +187,7 @@ const ItemDetail = () => {
         <main className="flex-1 container mx-auto px-4 py-8">
           <div className="text-center py-16">
             <h2 className="text-2xl font-bold mb-2">Item Not Found</h2>
-            <p className="text-gray-600 mb-8">The item you're looking for doesn't exist or is no longer available.</p>
+            <p className="text-gray-600 mb-8">The item you're looking for doesn't exist.</p>
             <Button onClick={() => navigate(-1)}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Go Back
@@ -361,8 +234,8 @@ const ItemDetail = () => {
                     </>
                   )}
                   <span>•</span>
-                  <Badge className="bg-blue-500 hover:bg-blue-600">
-                    Available
+                  <Badge className={item.is_available ? "bg-green-500 hover:bg-green-600" : "bg-red-500 hover:bg-red-600"}>
+                    {item.is_available ? "Available" : "Not Available"}
                   </Badge>
                 </div>
               </div>
@@ -441,7 +314,7 @@ const ItemDetail = () => {
               </Tabs>
 
               <div className="flex gap-4 mb-8">
-                <Button variant="outline" onClick={addToWishlist}>
+                <Button variant="outline">
                   <Heart className="h-4 w-4 mr-2" />
                   Save
                 </Button>
@@ -453,120 +326,7 @@ const ItemDetail = () => {
             </div>
 
             <div className="lg:col-span-1">
-              <div className="bg-white rounded-lg border p-6 sticky top-6">
-                <div className="flex justify-between items-center mb-4">
-                  <div>
-                    <div className="text-2xl font-bold">${item.price} <span className="text-sm text-gray-500 font-normal">/{item.price_unit}</span></div>
-                    {item.security_deposit > 0 && (
-                      <div className="text-sm text-gray-600">
-                        <span className="flex items-center">
-                          <Shield className="h-4 w-4 mr-1" /> ${item.security_deposit} security deposit
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center">
-                    <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
-                    <span className="ml-1 font-medium">4.8</span>
-                    <span className="ml-1 text-gray-500">(12)</span>
-                  </div>
-                </div>
-
-                <Separator className="my-4" />
-
-                <div className="mb-4">
-                  <label className="block text-sm font-medium mb-1">Select Dates</label>
-                  <div className="border rounded-lg p-3">
-                    <Calendar
-                      mode="range"
-                      selected={selectedDates}
-                      onSelect={(range) => setSelectedDates(range || { from: undefined, to: undefined })}
-                      className="border-0 pointer-events-auto"
-                      disabled={(date) => date < new Date() || date > new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)}
-                      initialFocus
-                    />
-                  </div>
-                </div>
-
-                {totalPrice > 0 && (
-                  <div className="mb-4">
-                    <div className="flex justify-between mb-2">
-                      <span>Subtotal</span>
-                      <span>${totalPrice}</span>
-                    </div>
-                    <div className="flex justify-between mb-2">
-                      <span>Service fee</span>
-                      <span>${(totalPrice * 0.1).toFixed(2)}</span>
-                    </div>
-                    <Separator className="my-2" />
-                    <div className="flex justify-between font-bold">
-                      <span>Total</span>
-                      <span>${(totalPrice + totalPrice * 0.1).toFixed(2)}</span>
-                    </div>
-                  </div>
-                )}
-
-                <Button 
-                  className="w-full" 
-                  onClick={handleBooking}
-                  disabled={bookingLoading || !item?.is_available}
-                >
-                  {bookingLoading ? (
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
-                  ) : null}
-                  {bookingLoading ? "Processing..." : "Book Now"}
-                </Button>
-
-                {owner && (
-                  <>
-                    <Separator className="my-4" />
-                    <div>
-                      <div className="text-sm font-medium mb-2">Owner</div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          {owner.avatar_url ? (
-                            <img
-                              src={owner.avatar_url}
-                              alt={owner.full_name || owner.username}
-                              className="h-10 w-10 rounded-full object-cover"
-                            />
-                          ) : (
-                            <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                              <User className="h-5 w-5 text-gray-500" />
-                            </div>
-                          )}
-                          <div className="ml-3">
-                            <div className="font-medium flex items-center">
-                              {owner.full_name || owner.username}
-                              {owner.is_verified && <VerifiedBadge size="sm" className="ml-1" />}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              <div className="flex items-center">
-                                <Star className="h-3 w-3 text-yellow-400 fill-yellow-400" />
-                                <span className="ml-1">{owner.rating?.toFixed(1) || "New"}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        <Button variant="outline" size="sm" onClick={() => {
-                          if (!user) {
-                            toast({
-                              title: "Authentication required",
-                              description: "Please sign in to message the owner",
-                            });
-                            navigate("/auth");
-                            return;
-                          }
-                          navigate("/messages");
-                        }}>
-                          <MessageCircle className="h-4 w-4 mr-1" />
-                          Message
-                        </Button>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
+              <ItemDetailCard item={item} owner={owner} />
             </div>
           </div>
         </div>

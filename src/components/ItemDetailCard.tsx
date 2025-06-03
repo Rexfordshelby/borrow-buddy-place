@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -116,12 +115,25 @@ const ItemDetailCard: React.FC<ItemDetailCardProps> = ({ item, owner }) => {
   }, [dateRange, timeSlot, item.price, item.price_unit, item.is_service]);
 
   const handleRentNow = async () => {
+    console.log('Attempting to book item:', item.id);
+    console.log('Item availability status:', item.is_available);
+    
     if (!user) {
       toast({
         title: "Authentication required",
         description: "Please sign in to book this " + (item.is_service ? "service" : "item"),
       });
       navigate("/auth");
+      return;
+    }
+
+    // Check if item is available
+    if (!item.is_available) {
+      toast({
+        title: "Item not available",
+        description: "This item is currently not available for booking",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -144,42 +156,65 @@ const ItemDetailCard: React.FC<ItemDetailCardProps> = ({ item, owner }) => {
       return;
     }
 
+    // Check if user is trying to book their own item
+    if (user.id === item.user_id) {
+      toast({
+        title: "Cannot book own item",
+        description: "You cannot book your own item",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      // For mock items, simulate booking success
-      if (item.id.includes('-')) {
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        toast({
-          title: "Booking request submitted!",
-          description: item.is_service 
-            ? "Your service booking request has been sent to the provider" 
-            : "Your rental request has been sent to the owner",
-        });
+      // Double-check item availability before booking
+      const { data: currentItem, error: checkError } = await supabase
+        .from("items")
+        .select("is_available")
+        .eq("id", item.id)
+        .single();
 
-        // Simulate success - in real app this would redirect to bookings
-        navigate("/");
+      if (checkError) {
+        console.error("Error checking item availability:", checkError);
+        throw new Error("Failed to verify item availability");
+      }
+
+      if (!currentItem.is_available) {
+        toast({
+          title: "Item no longer available",
+          description: "This item has been made unavailable since you loaded the page",
+          variant: "destructive",
+        });
         return;
       }
 
       // Create booking for real items
+      const bookingData = {
+        item_id: item.id,
+        renter_id: user.id,
+        owner_id: item.user_id,
+        start_date: dateRange.from.toISOString(),
+        end_date: dateRange.to ? dateRange.to.toISOString() : dateRange.from.toISOString(),
+        total_price: totalPrice,
+        status: "pending",
+        time_slot: timeSlot || null,
+      };
+
+      console.log('Creating booking with data:', bookingData);
+
       const { data, error } = await supabase
         .from("bookings")
-        .insert({
-          item_id: item.id,
-          renter_id: user.id,
-          owner_id: item.user_id,
-          start_date: dateRange.from.toISOString(),
-          end_date: dateRange.to ? dateRange.to.toISOString() : dateRange.from.toISOString(),
-          total_price: totalPrice,
-          status: "pending",
-          time_slot: timeSlot || null,
-        })
+        .insert(bookingData)
         .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Booking creation error:", error);
+        throw error;
+      }
+
+      console.log('Booking created successfully:', data);
 
       toast({
         title: "Request submitted",
@@ -320,6 +355,13 @@ const ItemDetailCard: React.FC<ItemDetailCardProps> = ({ item, owner }) => {
             </Button>
           </div>
 
+          {/* Availability indicator */}
+          {!item.is_available && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-red-800 font-medium">This item is currently not available for booking.</p>
+            </div>
+          )}
+
           {distance !== null && (
             <div className="flex items-center text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">
               <MapPin className="h-4 w-4 mr-2" />
@@ -327,92 +369,94 @@ const ItemDetailCard: React.FC<ItemDetailCardProps> = ({ item, owner }) => {
             </div>
           )}
 
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="block text-sm font-medium">
-                {item.is_service ? "Select Date" : "Rental Period"}
-              </label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-left font-normal h-12"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateRange.from ? (
-                      dateRange.to && !item.is_service ? (
-                        <>
-                          {format(dateRange.from, "MMM dd, yyyy")} -{" "}
-                          {format(dateRange.to, "MMM dd, yyyy")}
-                        </>
-                      ) : (
-                        format(dateRange.from, "MMM dd, yyyy")
-                      )
-                    ) : (
-                      <span>Select date{item.is_service ? "" : " range"}</span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  {item.is_service ? (
-                    <Calendar
-                      initialFocus
-                      mode="single"
-                      defaultMonth={new Date()}
-                      selected={dateRange.from}
-                      onSelect={(date) => {
-                        setDateRange({
-                          from: date,
-                          to: date,
-                        });
-                      }}
-                      disabled={{ before: new Date() }}
-                    />
-                  ) : (
-                    <Calendar
-                      initialFocus
-                      mode="range"
-                      defaultMonth={new Date()}
-                      selected={dateRange}
-                      onSelect={(range: any) => {
-                        setDateRange(range || { from: undefined, to: undefined });
-                      }}
-                      numberOfMonths={2}
-                      disabled={{ before: new Date() }}
-                    />
-                  )}
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            {item.price_unit === 'hour' && (
+          {item.is_available && (
+            <div className="space-y-4">
               <div className="space-y-2">
-                <label className="block text-sm font-medium">Duration</label>
-                <Select
-                  value={timeSlot}
-                  onValueChange={setTimeSlot}
-                >
-                  <SelectTrigger className="w-full h-12">
-                    <SelectValue placeholder="Select duration" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {getTimeSlotOptions().map(option => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <label className="block text-sm font-medium">
+                  {item.is_service ? "Select Date" : "Rental Period"}
+                </label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-left font-normal h-12"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dateRange.from ? (
+                        dateRange.to && !item.is_service ? (
+                          <>
+                            {format(dateRange.from, "MMM dd, yyyy")} -{" "}
+                            {format(dateRange.to, "MMM dd, yyyy")}
+                          </>
+                        ) : (
+                          format(dateRange.from, "MMM dd, yyyy")
+                        )
+                      ) : (
+                        <span>Select date{item.is_service ? "" : " range"}</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    {item.is_service ? (
+                      <Calendar
+                        initialFocus
+                        mode="single"
+                        defaultMonth={new Date()}
+                        selected={dateRange.from}
+                        onSelect={(date) => {
+                          setDateRange({
+                            from: date,
+                            to: date,
+                          });
+                        }}
+                        disabled={{ before: new Date() }}
+                      />
+                    ) : (
+                      <Calendar
+                        initialFocus
+                        mode="range"
+                        defaultMonth={new Date()}
+                        selected={dateRange}
+                        onSelect={(range: any) => {
+                          setDateRange(range || { from: undefined, to: undefined });
+                        }}
+                        numberOfMonths={2}
+                        disabled={{ before: new Date() }}
+                      />
+                    )}
+                  </PopoverContent>
+                </Popover>
               </div>
-            )}
-            
-            {item.availability_schedule && (
-              <div className="text-sm text-gray-600 bg-blue-50 p-4 rounded-lg border border-blue-200">
-                <p className="font-medium mb-1 text-blue-800">📅 Availability:</p>
-                <p className="text-blue-700">{item.availability_schedule}</p>
-              </div>
-            )}
-          </div>
+
+              {item.price_unit === 'hour' && (
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium">Duration</label>
+                  <Select
+                    value={timeSlot}
+                    onValueChange={setTimeSlot}
+                  >
+                    <SelectTrigger className="w-full h-12">
+                      <SelectValue placeholder="Select duration" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getTimeSlotOptions().map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              
+              {item.availability_schedule && (
+                <div className="text-sm text-gray-600 bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <p className="font-medium mb-1 text-blue-800">📅 Availability:</p>
+                  <p className="text-blue-700">{item.availability_schedule}</p>
+                </div>
+              )}
+            </div>
+          )}
 
           {totalDays > 0 && totalPrice > 0 && (
             <div className="border-t border-b py-4 space-y-3 bg-gray-50 -mx-6 px-6">
@@ -454,7 +498,7 @@ const ItemDetailCard: React.FC<ItemDetailCardProps> = ({ item, owner }) => {
             className="w-full h-12 text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
             size="lg"
             onClick={handleRentNow}
-            disabled={!dateRange.from || (item.price_unit === 'hour' && !timeSlot) || isSubmitting}
+            disabled={!item.is_available || !dateRange.from || (item.price_unit === 'hour' && !timeSlot) || isSubmitting}
           >
             {isSubmitting ? (
               <div className="flex items-center">
