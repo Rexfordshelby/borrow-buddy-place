@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Star, MapPin, UserCheck, Share, Heart } from "lucide-react";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "@/hooks/use-toast";
 import ReviewsList from "@/components/ReviewsList";
 import ReviewForm from "@/components/ReviewForm";
 
@@ -36,13 +36,10 @@ const ItemDetail = () => {
       try {
         console.log('Fetching item with ID:', id);
         
-        // Fetch item with category information
+        // Fetch item with category information - using separate queries to avoid relationship issues
         const { data: itemData, error: itemError } = await supabase
           .from('items')
-          .select(`
-            *,
-            categories:category_id(name)
-          `)
+          .select('*')
           .eq('id', id)
           .single();
 
@@ -51,13 +48,29 @@ const ItemDetail = () => {
           throw itemError;
         }
 
+        if (!itemData) {
+          throw new Error("Item not found");
+        }
+
         console.log('Item fetched:', itemData);
         console.log('Item availability:', itemData.is_available);
 
-        // Check if item is available - don't filter here, show the item but indicate availability
+        // Fetch category information separately
+        if (itemData.category_id) {
+          const { data: categoryData } = await supabase
+            .from('categories')
+            .select('name')
+            .eq('id', itemData.category_id)
+            .single();
+
+          if (categoryData) {
+            itemData.categories = categoryData;
+          }
+        }
+
         setItem(itemData);
 
-        // Fetch owner profile separately to avoid join issues
+        // Fetch owner profile separately
         if (itemData.user_id) {
           const { data: ownerData, error: ownerError } = await supabase
             .from('profiles')
@@ -73,12 +86,10 @@ const ItemDetail = () => {
         }
 
         // Increment view count
-        if (itemData.id) {
-          await supabase
-            .from('items')
-            .update({ view_count: (itemData.view_count || 0) + 1 })
-            .eq('id', itemData.id);
-        }
+        await supabase
+          .from('items')
+          .update({ view_count: (itemData.view_count || 0) + 1 })
+          .eq('id', itemData.id);
 
         // Check if logged-in user can review
         if (user) {
