@@ -184,14 +184,20 @@ const ItemDetailCard: React.FC<ItemDetailCardProps> = ({ item, owner }) => {
         return;
       }
 
-      // Create booking
+      // Prepare booking data with proper date formatting
+      const startDate = dateRange.from.toISOString();
+      const endDate = dateRange.to ? dateRange.to.toISOString() : dateRange.from.toISOString();
+      
+      // Ensure total price is positive
+      const finalTotalPrice = Math.max(totalPrice, Number(item.price));
+
       const bookingData = {
         item_id: item.id,
         renter_id: user.id,
         owner_id: item.user_id,
-        start_date: dateRange.from.toISOString(),
-        end_date: dateRange.to ? dateRange.to.toISOString() : dateRange.from.toISOString(),
-        total_price: totalPrice,
+        start_date: startDate,
+        end_date: endDate,
+        total_price: finalTotalPrice,
         status: "pending",
       };
 
@@ -200,7 +206,8 @@ const ItemDetailCard: React.FC<ItemDetailCardProps> = ({ item, owner }) => {
       const { data, error } = await supabase
         .from("bookings")
         .insert(bookingData)
-        .select();
+        .select()
+        .single();
 
       if (error) {
         console.error("Booking creation error:", error);
@@ -216,14 +223,30 @@ const ItemDetailCard: React.FC<ItemDetailCardProps> = ({ item, owner }) => {
           : "Your rental request has been sent to the owner",
       });
 
-      // Redirect to bookings page
+      // Reset form
+      setDateRange({ from: undefined, to: undefined });
+      setTimeSlot("");
+
+      // Redirect to dashboard
       navigate("/dashboard");
 
     } catch (error: any) {
       console.error("Booking error:", error);
+      
+      // Provide more specific error messages
+      let errorMessage = "There was an error processing your booking request. Please try again.";
+      
+      if (error.message?.includes("violates check constraint")) {
+        errorMessage = "Invalid booking dates or price. Please check your selection and try again.";
+      } else if (error.message?.includes("foreign key")) {
+        errorMessage = "Invalid item or user reference. Please refresh the page and try again.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Booking failed",
-        description: error.message || "There was an error processing your booking request. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
