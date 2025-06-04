@@ -39,32 +39,6 @@ const ItemDetailCard: React.FC<ItemDetailCardProps> = ({ item, owner }) => {
   const [isInWishlist, setIsInWishlist] = useState(false);
   const [totalDays, setTotalDays] = useState(0);
   const [totalPrice, setTotalPrice] = useState(0);
-  const [distance, setDistance] = useState<number | null>(null);
-
-  // Calculate distance if user location is available
-  useEffect(() => {
-    if (navigator.geolocation && item?.latitude && item?.longitude) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          // Calculate distance using Haversine formula
-          const R = 3958.8; // Earth's radius in miles
-          const dLat = (item.latitude - position.coords.latitude) * Math.PI / 180;
-          const dLon = (item.longitude - position.coords.longitude) * Math.PI / 180;
-          const a = 
-            Math.sin(dLat/2) * Math.sin(dLat/2) +
-            Math.cos(position.coords.latitude * Math.PI / 180) * Math.cos(item.latitude * Math.PI / 180) * 
-            Math.sin(dLon/2) * Math.sin(dLon/2); 
-          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
-          const distance = R * c;
-          
-          setDistance(distance);
-        },
-        (error) => {
-          console.error("Error getting location:", error);
-        }
-      );
-    }
-  }, [item]);
 
   // Check if item is in user's wishlist
   useEffect(() => {
@@ -103,7 +77,6 @@ const ItemDetailCard: React.FC<ItemDetailCardProps> = ({ item, owner }) => {
 
       // For hourly items/services with time slots, calculate differently
       if (item.price_unit === 'hour' && timeSlot) {
-        // Assuming time slot format like "2 hours"
         const hours = parseInt(timeSlot.split(' ')[0]);
         setTotalPrice(Number(item.price) * hours);
       } else {
@@ -184,27 +157,7 @@ const ItemDetailCard: React.FC<ItemDetailCardProps> = ({ item, owner }) => {
     setIsSubmitting(true);
 
     try {
-      console.log('Processing booking for item:', item.id);
-      
-      // Handle mock items or demo items
-      if (item.id.includes('mock') || item.user_id.includes('mock') || !item.user_id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-        console.log('Demo item detected, creating demo booking');
-        
-        // Simulate a successful booking for demo purposes
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        toast({
-          title: "Demo booking created!",
-          description: "This is a demonstration booking. In a real scenario, the owner would be notified.",
-        });
-
-        // Redirect to dashboard
-        navigate("/dashboard");
-        return;
-      }
-
-      // For real items, proceed with database booking
-      console.log('Creating real booking in database');
+      console.log('Creating booking for item:', item.id);
       
       // Double-check item availability
       const { data: currentItem, error: checkError } = await supabase
@@ -215,8 +168,14 @@ const ItemDetailCard: React.FC<ItemDetailCardProps> = ({ item, owner }) => {
 
       if (checkError) {
         console.error("Error checking item availability:", checkError);
-        // Don't fail completely, continue with booking
-      } else if (currentItem && !currentItem.is_available) {
+        throw new Error("Error checking item availability");
+      }
+
+      if (!currentItem) {
+        throw new Error("Item not found");
+      }
+
+      if (!currentItem.is_available) {
         toast({
           title: "Item no longer available",
           description: "This item has been made unavailable since you loaded the page",
@@ -234,7 +193,6 @@ const ItemDetailCard: React.FC<ItemDetailCardProps> = ({ item, owner }) => {
         end_date: dateRange.to ? dateRange.to.toISOString() : dateRange.from.toISOString(),
         total_price: totalPrice,
         status: "pending",
-        time_slot: timeSlot || null,
       };
 
       console.log('Creating booking with data:', bookingData);
@@ -355,21 +313,6 @@ const ItemDetailCard: React.FC<ItemDetailCardProps> = ({ item, owner }) => {
     }
   };
 
-  const getTimeSlotOptions = () => {
-    // Generate time slot options based on price unit
-    if (item?.price_unit === 'hour') {
-      return [
-        { value: '1 hour', label: '1 hour' },
-        { value: '2 hours', label: '2 hours' },
-        { value: '3 hours', label: '3 hours' },
-        { value: '4 hours', label: '4 hours' },
-        { value: 'half day (6 hours)', label: 'Half day (6 hours)' },
-        { value: 'full day (12 hours)', label: 'Full day (12 hours)' }
-      ];
-    }
-    return [];
-  };
-
   // Early return if no item data
   if (!item) {
     return (
@@ -418,13 +361,6 @@ const ItemDetailCard: React.FC<ItemDetailCardProps> = ({ item, owner }) => {
           ) : (
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
               <p className="text-green-800 font-medium">✅ Available for booking!</p>
-            </div>
-          )}
-
-          {distance !== null && (
-            <div className="flex items-center text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">
-              <MapPin className="h-4 w-4 mr-2" />
-              <span>Approximately {distance.toFixed(1)} miles away</span>
             </div>
           )}
 
