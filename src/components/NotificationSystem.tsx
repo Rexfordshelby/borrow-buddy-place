@@ -20,8 +20,6 @@ interface Notification {
   type: string;
   is_read: boolean;
   created_at: string;
-  booking_id?: string;
-  item_id?: string;
 }
 
 const NotificationSystem = () => {
@@ -53,9 +51,7 @@ const NotificationSystem = () => {
         message: notification.message,
         type: notification.type,
         is_read: notification.is_read,
-        created_at: notification.created_at,
-        booking_id: notification.booking_id,
-        item_id: notification.item_id
+        created_at: notification.created_at
       })) || [];
 
       setNotifications(transformedNotifications);
@@ -89,9 +85,7 @@ const NotificationSystem = () => {
             message: payload.new.message,
             type: payload.new.type,
             is_read: payload.new.is_read,
-            created_at: payload.new.created_at,
-            booking_id: payload.new.booking_id,
-            item_id: payload.new.item_id
+            created_at: payload.new.created_at
           } as Notification;
           
           setNotifications(prev => [newNotification, ...prev.slice(0, 9)]);

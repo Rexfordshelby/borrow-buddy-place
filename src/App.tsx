@@ -44,7 +44,7 @@ function App() {
                     <Route path="/item/:id" element={<ItemDetail />} />
                     <Route path="/profile/:id" element={<UserProfile />} />
                     <Route
-                      path="/dashboard"
+                      path="/dashboard/*"
                       element={
                         <PrivateRoute>
                           <Dashboard />

@@ -2,8 +2,6 @@
 import { useState, useEffect } from "react";
 import { Routes, Route, Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { UserRound, Package, Heart, Calendar, Settings, UserCheck } from "lucide-react";
@@ -68,58 +66,54 @@ const Dashboard = () => {
   ];
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <Navbar />
-      <div className="flex-1 container mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-6">My Dashboard</h1>
-        
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          <div className="md:col-span-1">
-            <div className="bg-white rounded-lg border p-4 sticky top-20">
-              <nav className="space-y-1">
-                {navItems.map(item => (
-                  <Link
-                    key={item.path}
-                    to={`/dashboard/${item.path}`}
-                    className={`flex items-center px-4 py-2 rounded-md transition-colors ${
-                      activePath === item.path
-                        ? "bg-brand-50 text-brand-600 font-medium"
-                        : "text-gray-700 hover:bg-gray-50"
-                    }`}
-                  >
-                    {item.icon}
-                    {item.label}
-                  </Link>
-                ))}
-              </nav>
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-2xl font-bold mb-6">My Dashboard</h1>
+      
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div className="md:col-span-1">
+          <div className="bg-white rounded-lg border p-4 sticky top-20">
+            <nav className="space-y-1">
+              {navItems.map(item => (
+                <Link
+                  key={item.path}
+                  to={`/dashboard/${item.path}`}
+                  className={`flex items-center px-4 py-2 rounded-md transition-colors ${
+                    activePath === item.path
+                      ? "bg-brand-50 text-brand-600 font-medium"
+                      : "text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  {item.icon}
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
 
-              <Separator className="my-4" />
+            <Separator className="my-4" />
 
-              <Button 
-                variant="outline" 
-                className="w-full"
-                onClick={() => navigate("/list-item")}
-              >
-                + List New Item
-              </Button>
-            </div>
-          </div>
-
-          <div className="md:col-span-3">
-            <Routes>
-              <Route path="/" element={<UserProfile />} />
-              <Route path="profile" element={<UserProfile />} />
-              <Route path="listings" element={<UserListings />} />
-              <Route path="bookings" element={<UserBookings />} />
-              <Route path="rentals" element={<UserRentals />} />
-              <Route path="wishlist" element={<UserWishlist />} />
-              <Route path="verification" element={<UserVerification />} />
-              <Route path="settings" element={<div>Settings placeholder</div>} />
-            </Routes>
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={() => navigate("/list-item")}
+            >
+              + List New Item
+            </Button>
           </div>
         </div>
+
+        <div className="md:col-span-3">
+          <Routes>
+            <Route path="/" element={<UserProfile />} />
+            <Route path="profile" element={<UserProfile />} />
+            <Route path="listings" element={<UserListings />} />
+            <Route path="bookings" element={<UserBookings />} />
+            <Route path="rentals" element={<UserRentals />} />
+            <Route path="wishlist" element={<UserWishlist />} />
+            <Route path="verification" element={<UserVerification />} />
+            <Route path="settings" element={<div>Settings placeholder</div>} />
+          </Routes>
+        </div>
       </div>
-      <Footer />
     </div>
   );
 };
