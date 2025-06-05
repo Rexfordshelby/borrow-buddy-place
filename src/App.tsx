@@ -1,68 +1,83 @@
 
-import React, { useState, useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider } from "./context/AuthContext";
-import { LanguageProvider } from "./context/LanguageContext";
-import { ReactQueryProvider } from "./context/ReactQueryContext";
-import Home from "./pages/Home";
-import AuthPage from "./pages/AuthPage";
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/context/AuthContext";
+import { LanguageProvider } from "@/context/LanguageContext";
+import RealTimeNotifications from "@/components/RealTimeNotifications";
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
+import Index from "./pages/Index";
+import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import ListItem from "./pages/ListItem";
 import ItemDetail from "./pages/ItemDetail";
+import SearchPage from "./pages/SearchPage";
+import CategoryPage from "./pages/CategoryPage";
 import UserProfile from "./pages/UserProfile";
 import Messages from "./pages/Messages";
-import CategoryPage from "./pages/CategoryPage";
-import SearchPage from "./pages/SearchPage";
-import ErrorBoundary from "./components/ErrorBoundary";
-import RealTimeNotifications from "./components/RealTimeNotifications";
-import { Toaster } from "./components/ui/toaster";
+import NotFound from "./pages/NotFound";
+import PrivateRoute from "./components/PrivateRoute";
 
-const App = () => {
-  const [loading, setLoading] = useState(true);
+const queryClient = new QueryClient();
 
-  useEffect(() => {
-    // Simulate loading
-    setTimeout(() => setLoading(false), 500);
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="text-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent mx-auto mb-4"></div>
-          <p>Loading BorrowBuddy...</p>
-        </div>
-      </div>
-    );
-  }
-
+function App() {
   return (
-    <ErrorBoundary>
-      <LanguageProvider>
-        <AuthProvider>
-          <ReactQueryProvider>
-            <Router>
-              <RealTimeNotifications />
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/auth" element={<AuthPage />} />
-                <Route path="/search" element={<SearchPage />} />
-                <Route path="/category/:slug" element={<CategoryPage />} />
-                <Route path="/dashboard/*" element={<Dashboard />} />
-                <Route path="/list-item" element={<ListItem />} />
-                <Route path="/list-item/:id" element={<ListItem />} />
-                <Route path="/item/:id" element={<ItemDetail />} />
-                <Route path="/user/:id" element={<UserProfile />} />
-                <Route path="/messages" element={<Messages />} />
-                <Route path="*" element={<Navigate to="/" />} />
-              </Routes>
-              <Toaster />
-            </Router>
-          </ReactQueryProvider>
-        </AuthProvider>
-      </LanguageProvider>
-    </ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <LanguageProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <div className="min-h-screen bg-gray-50 flex flex-col">
+                <Navbar />
+                <RealTimeNotifications />
+                <main className="flex-1">
+                  <Routes>
+                    <Route path="/" element={<Index />} />
+                    <Route path="/auth" element={<Auth />} />
+                    <Route path="/search" element={<SearchPage />} />
+                    <Route path="/category/:slug" element={<CategoryPage />} />
+                    <Route path="/item/:id" element={<ItemDetail />} />
+                    <Route path="/profile/:id" element={<UserProfile />} />
+                    <Route
+                      path="/dashboard"
+                      element={
+                        <PrivateRoute>
+                          <Dashboard />
+                        </PrivateRoute>
+                      }
+                    />
+                    <Route
+                      path="/list-item"
+                      element={
+                        <PrivateRoute>
+                          <ListItem />
+                        </PrivateRoute>
+                      }
+                    />
+                    <Route
+                      path="/messages"
+                      element={
+                        <PrivateRoute>
+                          <Messages />
+                        </PrivateRoute>
+                      }
+                    />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </main>
+                <Footer />
+              </div>
+            </BrowserRouter>
+          </TooltipProvider>
+        </LanguageProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
-};
+}
 
 export default App;

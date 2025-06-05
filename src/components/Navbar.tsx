@@ -1,110 +1,104 @@
 
-import { useState } from "react";
+import React from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Search, Menu, X } from "lucide-react";
-import NavbarButtons from "./NavbarButtons";
-import LanguageSelector from "./LanguageSelector";
-import { useLanguage } from "@/context/LanguageContext";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { User, Settings, LogOut, MessageSquare } from "lucide-react";
+import NotificationSystem from "./NotificationSystem";
+import { LanguageSelector } from "./LanguageSelector";
 
 const Navbar = () => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const { t } = useLanguage();
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
-      setSearchQuery("");
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigate("/");
+    } catch (error) {
+      console.error("Error signing out:", error);
     }
   };
 
   return (
-    <header className="border-b bg-white sticky top-0 z-40">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          <div className="flex-shrink-0">
-            <Link to="/" className="flex items-center">
-              <span className="text-2xl font-bold text-brand-600">
-                BorrowBuddy
-              </span>
+    <nav className="bg-white shadow-sm border-b">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-16">
+          <div className="flex items-center">
+            <Link to="/" className="flex-shrink-0 flex items-center">
+              <span className="text-2xl font-bold text-blue-600">BorrowBuddy</span>
             </Link>
           </div>
 
-          {/* Desktop search */}
-          <form onSubmit={handleSearch} className="hidden md:block flex-1 max-w-md mx-4">
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                <Search className="h-4 w-4 text-gray-400" />
+          <div className="flex items-center space-x-4">
+            <LanguageSelector />
+            
+            {user ? (
+              <>
+                <NotificationSystem />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate("/messages")}
+                  className="hidden sm:flex"
+                >
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Messages
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={user.user_metadata?.avatar_url} alt="Avatar" />
+                        <AvatarFallback>
+                          {user.email?.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56" align="end" forceMount>
+                    <DropdownMenuItem onClick={() => navigate("/profile")}>
+                      <User className="mr-2 h-4 w-4" />
+                      <span>Profile</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/dashboard")}>
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span>Dashboard</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/messages")} className="sm:hidden">
+                      <MessageSquare className="mr-2 h-4 w-4" />
+                      <span>Messages</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleSignOut}>
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Log out</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <Button variant="ghost" onClick={() => navigate("/auth")}>
+                  Sign In
+                </Button>
+                <Button onClick={() => navigate("/auth")}>
+                  Sign Up
+                </Button>
               </div>
-              <Input
-                type="search"
-                placeholder={t('search.placeholder')}
-                className="pl-10 w-full"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-          </form>
-
-          {/* Desktop navigation */}
-          <nav className="hidden md:flex items-center space-x-4">
-            <LanguageSelector />
-            <NavbarButtons />
-          </nav>
-
-          {/* Mobile menu button */}
-          <div className="md:hidden flex items-center space-x-2">
-            <LanguageSelector />
-            <button
-              onClick={() => setIsOpen(!isOpen)}
-              className="p-2 rounded-md focus:outline-none"
-            >
-              {isOpen ? (
-                <X className="h-6 w-6 text-gray-600" />
-              ) : (
-                <Menu className="h-6 w-6 text-gray-600" />
-              )}
-            </button>
+            )}
           </div>
         </div>
-
-        {/* Mobile menu */}
-        {isOpen && (
-          <div className="md:hidden py-2 space-y-2 animate-fade-in">
-            <form onSubmit={handleSearch}>
-              <div className="relative mb-4">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                  <Search className="h-4 w-4 text-gray-400" />
-                </div>
-                <Input
-                  type="search"
-                  placeholder={t('search.placeholder')}
-                  className="pl-10 w-full"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-            </form>
-            <Link
-              to="/list-item"
-              className="block px-3 py-2 rounded-md text-base font-medium text-brand-600 hover:bg-gray-50"
-              onClick={() => setIsOpen(false)}
-            >
-              {t('nav.list')}
-            </Link>
-            <div className="pt-4 pb-3 border-t border-gray-200">
-              <div className="flex items-center px-4">
-                <NavbarButtons />
-              </div>
-            </div>
-          </div>
-        )}
       </div>
-    </header>
+    </nav>
   );
 };
 
