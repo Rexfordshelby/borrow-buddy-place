@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { User, Settings, LogOut, MessageSquare } from "lucide-react";
 import NotificationSystem from "./NotificationSystem";
-import { LanguageSelector } from "./LanguageSelector";
+import LanguageSelector from "./LanguageSelector";
 
 const Navbar = () => {
   const { user, signOut } = useAuth();

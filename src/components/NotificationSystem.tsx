@@ -19,7 +19,6 @@ interface Notification {
   message: string;
   type: string;
   is_read: boolean;
-  read: boolean;
   created_at: string;
   booking_id?: string;
   item_id?: string;
@@ -47,8 +46,20 @@ const NotificationSystem = () => {
         return;
       }
 
-      setNotifications(data || []);
-      const unread = data?.filter(n => !n.is_read && !n.read).length || 0;
+      // Transform the data to match our interface
+      const transformedNotifications = data?.map(notification => ({
+        id: notification.id,
+        title: notification.title,
+        message: notification.message,
+        type: notification.type,
+        is_read: notification.is_read,
+        created_at: notification.created_at,
+        booking_id: notification.booking_id,
+        item_id: notification.item_id
+      })) || [];
+
+      setNotifications(transformedNotifications);
+      const unread = transformedNotifications.filter(n => !n.is_read).length;
       setUnreadCount(unread);
     };
 
@@ -72,7 +83,16 @@ const NotificationSystem = () => {
         },
         (payload) => {
           console.log('New notification:', payload);
-          const newNotification = payload.new as Notification;
+          const newNotification = {
+            id: payload.new.id,
+            title: payload.new.title,
+            message: payload.new.message,
+            type: payload.new.type,
+            is_read: payload.new.is_read,
+            created_at: payload.new.created_at,
+            booking_id: payload.new.booking_id,
+            item_id: payload.new.item_id
+          } as Notification;
           
           setNotifications(prev => [newNotification, ...prev.slice(0, 9)]);
           setUnreadCount(prev => prev + 1);
@@ -174,7 +194,7 @@ const NotificationSystem = () => {
                 key={notification.id}
                 className="flex flex-col items-start p-3 cursor-pointer"
                 onClick={() => {
-                  if (!notification.is_read && !notification.read) {
+                  if (!notification.is_read) {
                     markAsRead(notification.id);
                   }
                 }}
@@ -188,7 +208,7 @@ const NotificationSystem = () => {
                       {new Date(notification.created_at).toLocaleTimeString()}
                     </p>
                   </div>
-                  {!notification.is_read && !notification.read && (
+                  {!notification.is_read && (
                     <div className="w-2 h-2 bg-blue-500 rounded-full ml-2 mt-1 flex-shrink-0" />
                   )}
                 </div>
