@@ -6,7 +6,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
 import { LanguageProvider } from "@/context/LanguageContext";
-import RealTimeNotifications from "@/components/RealTimeNotifications";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Index from "./pages/Index";
@@ -34,7 +33,6 @@ function App() {
             <BrowserRouter>
               <div className="min-h-screen bg-gray-50 flex flex-col">
                 <Navbar />
-                <RealTimeNotifications />
                 <main className="flex-1">
                   <Routes>
                     <Route path="/" element={<Index />} />
