@@ -104,13 +104,13 @@ const Dashboard = () => {
         <div className="md:col-span-3">
           <Routes>
             <Route path="/" element={<UserProfile />} />
-            <Route path="profile" element={<UserProfile />} />
-            <Route path="listings" element={<UserListings />} />
-            <Route path="bookings" element={<UserBookings />} />
-            <Route path="rentals" element={<UserRentals />} />
-            <Route path="wishlist" element={<UserWishlist />} />
-            <Route path="verification" element={<UserVerification />} />
-            <Route path="settings" element={<div>Settings placeholder</div>} />
+            <Route path="/profile" element={<UserProfile />} />
+            <Route path="/listings" element={<UserListings />} />
+            <Route path="/bookings" element={<UserBookings />} />
+            <Route path="/rentals" element={<UserRentals />} />
+            <Route path="/wishlist" element={<UserWishlist />} />
+            <Route path="/verification" element={<UserVerification />} />
+            <Route path="/settings" element={<div>Settings placeholder</div>} />
           </Routes>
         </div>
       </div>

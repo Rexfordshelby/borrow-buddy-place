@@ -44,13 +44,15 @@ function App() {
                     <Route path="/item/:id" element={<ItemDetail />} />
                     <Route path="/profile/:id" element={<UserProfile />} />
                     <Route
-                      path="/dashboard/*"
+                      path="/dashboard"
                       element={
                         <PrivateRoute>
                           <Dashboard />
                         </PrivateRoute>
                       }
-                    />
+                    >
+                      <Route path="*" element={<Dashboard />} />
+                    </Route>
                     <Route
                       path="/list-item"
                       element={
