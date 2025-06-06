@@ -1,6 +1,6 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { Session, User } from "@supabase/supabase-js";
+import { Session, User, Provider } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 
@@ -13,7 +13,8 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
-  setProfile: (profile: any) => void; // Add setProfile function
+  signInWithProvider: (provider: Provider) => Promise<void>;
+  setProfile: (profile: any) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -111,6 +112,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           data: {
             full_name: fullName,
           },
+          emailRedirectTo: `${window.location.origin}/`,
         },
       });
 
@@ -154,6 +156,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (error: any) {
       toast({
         title: "Error signing in",
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
+  const signInWithProvider = async (provider: Provider) => {
+    try {
+      cleanupAuthState();
+      // Try to sign out any existing session
+      try {
+        await supabase.auth.signOut({ scope: 'global' });
+      } catch (err) {
+        // Continue even if this fails
+      }
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}/`,
+        },
+      });
+
+      if (error) throw error;
+      
+    } catch (error: any) {
+      toast({
+        title: `Error signing in with ${provider}`,
         description: error.message || "An unexpected error occurred",
         variant: "destructive",
       });
@@ -211,7 +242,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     signIn,
     signOut,
     requestPasswordReset,
-    setProfile, // Add setProfile to the context value
+    signInWithProvider,
+    setProfile,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

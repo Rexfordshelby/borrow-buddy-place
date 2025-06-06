@@ -66,22 +66,26 @@ const Dashboard = () => {
   ];
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8 animate-fade-in">
       <h1 className="text-2xl font-bold mb-6">My Dashboard</h1>
       
       <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
         <div className="md:col-span-1">
-          <div className="bg-white rounded-lg border p-4 sticky top-20">
+          <div className="bg-white rounded-lg border p-4 sticky top-20 shadow-sm hover:shadow-md transition-all">
             <nav className="space-y-1">
-              {navItems.map(item => (
+              {navItems.map((item, index) => (
                 <Link
                   key={item.path}
                   to={`/dashboard/${item.path}`}
-                  className={`flex items-center px-4 py-2 rounded-md transition-colors ${
+                  className={`flex items-center px-4 py-2 rounded-md transition-all ${
                     activePath === item.path
                       ? "bg-brand-50 text-brand-600 font-medium"
                       : "text-gray-700 hover:bg-gray-50"
                   }`}
+                  style={{ 
+                    animationDelay: `${index * 50}ms`,
+                    animation: "fade-in 0.3s ease-out forwards"
+                  }}
                 >
                   {item.icon}
                   {item.label}
@@ -93,7 +97,7 @@ const Dashboard = () => {
 
             <Button 
               variant="outline" 
-              className="w-full"
+              className="w-full transition-all hover:bg-brand-50 hover:border-brand-200"
               onClick={() => navigate("/list-item")}
             >
               + List New Item
@@ -101,7 +105,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="md:col-span-3">
+        <div className="md:col-span-3 animate-fade-in">
           <Routes>
             <Route path="/" element={<UserProfile />} />
             <Route path="/profile" element={<UserProfile />} />
